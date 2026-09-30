@@ -1,0 +1,117 @@
+/*
+Proyecto: Gestión de Coworking
+Grupo: 01
+Módulo: Procedimientos Almacenados y Control de Acceso / Roles
+Archivo: 06_procedimientos_
+Descripción:
+Estructura y comentarios organizativos para los 20 Procedimientos Almacenados 
+Requisitos:
+Ejecutar previamente DDL y DML.
+*/
+USE coworking_db;
+--============================================================================
+-- SECCIÓN: PROCEDIMIENTOS ALMACENADOS (Procedimientos 01 a 20)
+--============================================================================
+-- Submódulo: Membresías (Procedimientos 01 a 04)
+-- =========================================
+-- CONSULTA 01
+-- Registrar nueva membresía y asignarla a un usuario -> Inserta una nueva membresía con 
+-- fecha de inicio, fecha de vencimiento y estado inicial.
+-- =========================================
+-- =========================================
+-- CONSULTA 02
+-- Renovar una membresía existente -> Extiende la vigencia de una membresía según el tipo
+-- contratado.
+-- =========================================
+-- =========================================
+-- CONSULTA 03
+-- Actualizar estado de membresías vencidas -> Recorre las membresías y marca como
+-- "Vencida" las que superan la fecha de fin.
+-- =========================================
+-- =========================================
+-- CONSULTA 04
+-- Suspender membresías con facturas impagas por más de X días -> Cambia el estado a
+-- "Suspendida" para usuarios con deudas.
+-- =========================================
+-- Submódulo: Reservas y Espacios (Procedimientos 05 a 09)
+-- =========================================
+-- CONSULTA 05
+-- Verificar disponibilidad de un espacio antes de crear reserva -> Comprueba que no haya
+-- solapamiento de horarios en el mismo espacio.
+-- =========================================
+-- =========================================
+-- CONSULTA 06
+-- Crear una nueva reserva de espacio -> Inserta una reserva en estado "Pendiente" y la vincula
+-- a un usuario y espacio.
+-- =========================================
+-- =========================================
+-- CONSULTA 07
+-- Confirmar reserva con pago -> Cambia estado de reserva a "Confirmada" al registrar el
+-- pago.
+-- =========================================
+-- =========================================
+-- CONSULTA 08
+-- Cancelar reserva con opción de reembolso parcial -> Marca reserva como "Cancelada" y
+-- genera un registro de reembolso si aplica.
+-- =========================================
+-- =========================================
+-- CONSULTA 09
+-- Liberar reservas no confirmadas después de X horas -> Automatiza la cancelación de
+-- reservas en estado "Pendiente".
+-- =========================================
+-- Submódulo: Pagos y Facturación (Procedimientos 10 a 13)
+-- =========================================
+-- CONSULTA 10
+-- Generar factura por membresía -> Crea factura al activar o renovar una membresía.
+-- =========================================
+-- =========================================
+-- CONSULTA 11
+-- Generar factura consolidada para empresa -> Agrupa cargos de empleados corporativos en
+-- una sola factura.
+-- =========================================
+-- =========================================
+-- CONSULTA 12
+-- Aplicar recargos a facturas vencidas -> Incrementa el monto de facturas con más de X días
+-- de atraso.
+-- =========================================
+-- =========================================
+-- CONSULTA 13
+-- Bloquear servicios adicionales por falta de pago -> Restringe acceso a servicios premium si
+-- existen facturas pendientes.
+-- =========================================
+-- Submódulo: Accesos y Asistencias (Procedimientos 14 a 17)
+-- =========================================
+-- CONSULTA 14
+-- Registrar acceso de usuario (entrada) -> Valida membresía o reserva activa y registra
+-- entrada en logs.
+-- =========================================
+-- =========================================
+-- CONSULTA 15
+-- Registrar salida de usuario -> Completa la asistencia del usuario y marca hora de salida.
+-- =========================================
+-- =========================================
+-- CONSULTA 16
+-- Generar reporte diario de asistencias -> Resume cantidad de ingresos, usuarios únicos y
+-- horarios pico.
+-- =========================================
+-- =========================================
+-- CONSULTA 17
+-- Marcar reservas como "No Show" y generar penalización -> Detecta reservas confirmadas
+-- sin asistencia y aplica cargo automático.
+-- =========================================
+-- Submódulo: Corporativos y Administración (Procedimientos 18 a 20)
+-- =========================================
+-- CONSULTA 18
+-- Registrar lote de empleados de una empresa con membresía corporativa -> Inserta varios
+-- usuarios vinculados a una empresa y les asigna membresía.
+-- =========================================
+-- =========================================
+-- CONSULTA 19
+-- Cancelar reservas futuras al eliminar membresía de usuario -> Recorre reservas
+-- pendientes/confirmadas y las cancela automáticamente.
+-- =========================================
+-- =========================================
+-- CONSULTA 20
+-- Generar reporte de ingresos mensuales acumulados -> Calcula ingresos por mes e ingresos
+-- acumulados en el año.
+-- =========================================

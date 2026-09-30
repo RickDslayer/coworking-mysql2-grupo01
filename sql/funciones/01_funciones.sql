@@ -1,0 +1,422 @@
+/*
+Proyecto: Gestión de Coworking
+Grupo: 01
+Módulo: Funciones SQL
+Archivo: 05_funciones.sql
+Descripción:
+Estructura y comentarios organizativos para la implementación de las 20 Funciones SQL del
+proyecto y las secciones correspondientes hasta completar las 100 consultas.
+Requisitos:
+Ejecutar previamente DDL y DML.
+*/
+
+USE coworking_db;
+
+--============================================================================
+-- SECCIÓN: FUNCIONES SQL (Consultas 01 a 20)
+--============================================================================
+-- Submódulo: Membresías (Funciones 01 a 05)
+-- =========================================
+-- CONSULTA 01
+-- fn_membresia_activa(usuario_id) -> Devuelve TRUE si el usuario tiene membresía activa.
+-- =========================================
+-- =========================================
+-- CONSULTA 02
+-- fn_dias_restantes_membresia(usuario_id) -> Días restantes de vigencia.
+-- =========================================
+-- =========================================
+-- CONSULTA 03
+-- fn_tipo_membresia(usuario_id) -> Retorna el tipo actual de membresía.
+-- =========================================
+-- =========================================
+-- CONSULTA 04
+-- fn_renovaciones_membresia(usuario_id) -> Número de veces que renovó.
+-- =========================================
+-- =========================================
+-- CONSULTA 05
+-- fn_estado_membresia(usuario_id) -> Devuelve estado (Activa, Suspendida, Vencida).
+-- =========================================
+-- Submódulo: Reservas (Funciones 06 a 10)
+-- =========================================
+-- CONSULTA 06
+-- fn_total_reservas(usuario_id) -> Cantidad total de reservas del usuario.
+-- =========================================
+-- =========================================
+-- CONSULTA 07
+-- fn_horas_reservadas(usuario_id, mes, año) -> Total de horas reservadas en un período.
+-- =========================================
+-- =========================================
+-- CONSULTA 08
+-- fn_espacio_mas_reservado() -> Retorna el ID del espacio más usado.
+-- =========================================
+-- =========================================-- CONSULTA 09
+-- fn_reservas_activas(usuario_id) -> Cantidad de reservas activas.
+-- =========================================
+-- =========================================
+-- CONSULTA 10
+-- fn_duracion_promedio_reservas(espacio_id) -> Promedio de duración de reservas en un espacio.
+-- =========================================
+-- Submódulo: Pagos y Facturación (Funciones 11 a 15)
+-- =========================================
+-- CONSULTA 11
+-- fn_total_pagado(usuario_id) -> Total pagado por un usuario.
+-- =========================================
+-- =========================================
+-- CONSULTA 12
+-- fn_ingresos_por_mes(mes, año) -> Ingresos totales en un mes.
+-- =========================================
+-- =========================================
+-- CONSULTA 13
+-- fn_ingresos_por_membresias() -> Total de ingresos por membresías.
+-- =========================================
+-- =========================================
+-- CONSULTA 14
+-- fn_ingresos_por_reservas() -> Total de ingresos por reservas.
+-- =========================================
+-- =========================================-- CONSULTA 15
+-- fn_ingresos_por_empresa(empresa_id) -> Ingresos totales por una empresa.
+-- =========================================
+-- Submódulo: Accesos y Asistencias (Funciones 16 a 20)
+-- =========================================
+-- CONSULTA 16
+-- fn_total_asistencias(usuario_id) -> Cantidad total de asistencias del usuario.
+-- =========================================
+-- =========================================
+-- CONSULTA 17
+-- fn_asistencias_mes(usuario_id, mes, año) -> Total de asistencias en un mes.
+-- =========================================
+-- =========================================
+-- CONSULTA 18
+-- fn_top_usuario_asistencias() -> Usuario con más accesos.
+-- =========================================
+-- =========================================
+-- CONSULTA 19
+-- fn_ultima_asistencia(usuario_id) -> Fecha de última asistencia.
+-- =========================================
+-- =========================================
+-- CONSULTA 20
+-- fn_promedio_asistencias() -> Promedio de asistencias por usuario.
+-- =========================================
+--============================================================================
+-- SECCIÓN: USUARIOS Y MEMBRESÍAS (Consultas 21 a 40)
+--============================================================================
+-- =========================================
+-- CONSULTA 21
+-- Listar todos los usuarios con sus datos personales.
+-- =========================================
+-- =========================================
+-- CONSULTA 22
+-- Listar usuarios con membresía activa actualmente.
+-- =========================================
+-- =========================================
+-- CONSULTA 23
+-- Obtener el historial de membresías compradas por usuario.
+-- =========================================
+-- =========================================
+-- CONSULTA 24
+-- Listar usuarios con membresías próximas a vencer (próximos 7 días).
+-- =========================================
+-- =========================================
+-- CONSULTA 25
+-- Contar la cantidad de usuarios registrados por tipo de membresía.
+-- =========================================
+-- =========================================-- CONSULTA 26
+-- Mostrar usuarios que no han tenido actividad o membresías activas este año.
+-- =========================================
+-- =========================================
+-- CONSULTA 27
+-- Obtener la lista de usuarios pertenecientes a una empresa específica.
+-- =========================================
+-- =========================================
+-- CONSULTA 28
+-- Consultar el detalle de la membresía contratada de un usuario por su ID.
+-- =========================================
+-- =========================================
+-- CONSULTA 29
+-- Listar usuarios suspendidos y la causa registrada.
+-- =========================================
+-- =========================================
+-- CONSULTA 30
+-- Mostrar los nuevos usuarios registrados durante el último mes.
+-- =========================================
+-- =========================================
+-- CONSULTA 31
+-- Listar membresías renovadas más de 3 veces.
+-- =========================================
+-- =========================================
+-- CONSULTA 32
+-- Consultar los tipos de membresías disponibles y sus precios bases.
+-- =========================================
+-- =========================================
+-- CONSULTA 33
+-- Mostrar usuarios con correo institucional o corporativo.
+-- =========================================
+-- =========================================
+-- CONSULTA 34
+-- Consultar los datos de contacto de emergencia por usuario.
+-- =========================================
+-- =========================================
+-- CONSULTA 35
+-- Listar usuarios registrados que pertenecen a planes grupales.
+-- =========================================
+-- =========================================
+-- CONSULTA 36
+-- Consultar promedio de edad o perfil demográfico de usuarios.
+-- =========================================
+-- =========================================
+-- CONSULTA 37
+-- Listar usuarios con beneficios de descuentos especiales aplicados.
+-- =========================================
+-- =========================================
+-- CONSULTA 38
+-- Obtener la fecha exacta del primer registro de cada usuario.
+-- =========================================
+-- =========================================-- CONSULTA 39
+-- Consultar miembros que cambiaron de tipo de membresía en el último semestre.
+-- =========================================
+-- =========================================
+-- CONSULTA 40
+-- Listar los top 10 usuarios más antiguos con membresía ininterrumpida.
+-- =========================================
+--============================================================================
+-- SECCIÓN: ESPACIOS Y RESERVAS (Consultas 41 a 60)
+--============================================================================
+-- =========================================
+-- CONSULTA 41
+-- Listar todos los espacios de coworking disponibles (escritorios, salas de reunión).
+-- =========================================
+-- =========================================
+-- CONSULTA 42
+-- Consultar reservas programadas para la fecha actual.
+-- =========================================
+-- =========================================
+-- CONSULTA 43
+-- Listar reservas con estado "Confirmado" de un usuario específico.
+-- =========================================
+-- =========================================-- CONSULTA 44
+-- Mostrar ocupación actual de los espacios por sala o piso.
+-- =========================================
+-- =========================================
+-- CONSULTA 45
+-- Consultar las reservas canceladas y su motivo.
+-- =========================================
+-- =========================================
+-- CONSULTA 46
+-- Obtener la cantidad de reservas realizadas por espacio en el último mes.
+-- =========================================
+-- =========================================
+-- CONSULTA 47
+-- Listar espacios con mayor tasa de cancelación.
+-- =========================================
+-- =========================================
+-- CONSULTA 48
+-- Consultar los horarios con mayor demanda de reservas en la semana.
+-- =========================================
+-- =========================================
+-- CONSULTA 49
+-- Mostrar el historial de reservas asociadas a una empresa.
+-- =========================================
+-- =========================================
+-- CONSULTA 50
+-- Consultar la capacidad máxima vs. capacidad reservada por área.
+-- =========================================
+-- =========================================
+-- CONSULTA 51
+-- Listar reservas que excedieron el tiempo contratado.
+-- =========================================
+-- =========================================
+-- CONSULTA 52
+-- Consultar disponibilidad de una sala de reuniones para un rango de horas específico.
+-- =========================================
+-- =========================================
+-- CONSULTA 53
+-- Mostrar el detalle de equipamiento disponible por cada espacio de trabajo.
+-- =========================================
+-- =========================================
+-- CONSULTA 54
+-- Listar reservas recurrentes programadas en el sistema.
+-- =========================================
+-- =========================================
+-- CONSULTA 55
+-- Consultar espacios que requieren mantenimiento o limpieza agendada.
+-- =========================================
+-- =========================================
+-- CONSULTA 56
+-- Obtener las reservas realizadas durante los fines de semana.
+-- =========================================
+-- =========================================-- CONSULTA 57
+-- Listar reservas pendientes de aprobación o confirmación de pago.
+-- =========================================
+-- =========================================
+-- CONSULTA 58
+-- Consultar el promedio de horas reservadas por tipo de espacio.
+-- =========================================
+-- =========================================
+-- CONSULTA 59
+-- Mostrar los espacios que no registraron ninguna reserva el último mes.
+-- =========================================
+-- =========================================
+-- CONSULTA 60
+-- Consultar el listado de reservas ordenadas por costo total de menor a mayor.
+-- =========================================
+--============================================================================
+-- SECCIÓN: FACTURACIÓN Y PAGOS (Consultas 61 a 80)
+--============================================================================
+-- =========================================
+-- CONSULTA 61
+-- Listar todas las facturas emitidas en el presente mes.
+-- =========================================
+-- =========================================-- CONSULTA 62
+-- Consultar el total de ingresos cobrados agrupados por método de pago.
+-- =========================================
+-- =========================================
+-- CONSULTA 63
+-- Listar facturas o pagos en estado "Pendiente" o "Vencido".
+-- =========================================
+-- =========================================
+-- CONSULTA 64
+-- Mostrar el historial de pagos realizados por un usuario específico.
+-- =========================================
+-- =========================================
+-- CONSULTA 65
+-- Consultar comprobantes emitidos con sus correspondientes impuestos/IVA.
+-- =========================================
+-- =========================================
+-- CONSULTA 66
+-- Obtener el total recaudado por concepto de membresías vs. reservas de espacios.
+-- =========================================
+-- =========================================
+-- CONSULTA 67
+-- Listar transacciones donde se hayan aplicado cupones de descuento.
+-- =========================================
+-- =========================================
+-- CONSULTA 68
+-- Mostrar las facturas emitidas directamente a nombre de una Empresa (B2B).
+-- =========================================
+-- =========================================
+-- CONSULTA 69
+-- Consultar reembolsos o devoluciones registradas en la base de datos.
+-- =========================================
+-- =========================================
+-- CONSULTA 70
+-- Obtener el top 5 de usuarios que generan más ingresos al coworking.
+-- =========================================
+-- =========================================
+-- CONSULTA 71
+-- Listar facturas emitidas en un rango de fechas específico.
+-- =========================================
+-- =========================================
+-- CONSULTA 72
+-- Consultar el promedio de pago mensual por usuario.
+-- =========================================
+-- =========================================
+-- CONSULTA 73
+-- Listar transacciones rechazadas o fallidas en la pasarela de pago.
+-- =========================================
+-- =========================================
+-- CONSULTA 74
+-- Consultar reportes de facturación con detalles de cliente y dirección fiscal.
+-- =========================================
+-- =========================================-- CONSULTA 75
+-- Obtener la facturación consolidada mensual del año en curso.
+-- =========================================
+-- =========================================
+-- CONSULTA 76
+-- Listar clientes con saldo a favor o notas de crédito generadas.
+-- =========================================
+-- =========================================
+-- CONSULTA 77
+-- Consultar mora acumulada de pagos no efectuados a tiempo.
+-- =========================================
+-- =========================================
+-- CONSULTA 78
+-- Listar los métodos de pago más utilizados por los clientes corporativos.
+-- =========================================
+-- =========================================
+-- CONSULTA 79
+-- Consultar servicios adicionales consumidos y facturados (impresiones, catering, etc.).
+-- =========================================
+-- =========================================
+-- CONSULTA 80
+-- Mostrar los pagos procesados durante el día actual.
+-- =========================================
+--============================================================================
+-- SECCIÓN: CONTROL DE ACCESOS Y ASISTENCIAS (Consultas 81 a 100)
+--============================================================================
+-- =========================================
+-- CONSULTA 81
+-- Listar todos los registros de entrada/salida (check-in / check-out) del día.
+-- =========================================
+-- =========================================
+-- CONSULTA 82
+-- Consultar los accesos concedidos a un usuario en una fecha específica.
+-- =========================================
+-- =========================================
+-- CONSULTA 83
+-- Listar intentos de acceso denegados y la razón del fallo (tarjeta inválida, membresía vencida).
+-- =========================================
+-- =========================================
+-- CONSULTA 84
+-- Mostrar a los usuarios que se encuentran actualmente dentro de las instalaciones.
+-- =========================================
+-- =========================================
+-- CONSULTA 85
+-- Consultar los accesos registrados fuera del horario laboral habitual.
+-- =========================================
+-- =========================================
+-- CONSULTA 86-- Obtener la duración promedio de permanencia por usuario en las instalaciones.
+-- =========================================
+-- =========================================
+-- CONSULTA 87
+-- Listar el historial de asistencias por sede o edificio del coworking.
+-- =========================================
+-- =========================================
+-- CONSULTA 88
+-- Mostrar los picos de afluencia de personas por hora durante el día.
+-- =========================================
+-- =========================================
+-- CONSULTA 89
+-- Consultar el registro de visitantes no miembros vinculados a un usuario.
+-- =========================================
+-- =========================================
+-- CONSULTA 90
+-- Obtener el ranking de días con mayor nivel de asistencia en el mes.
+-- =========================================
+-- =========================================
+-- CONSULTA 91
+-- Listar los usuarios que hicieron check-in pero no registraron check-out.
+-- =========================================
+-- =========================================
+-- CONSULTA 92
+-- Consultar el método de validación de acceso utilizado (tarjeta NFC, código QR, biométrico).
+-- =========================================-- =========================================
+-- CONSULTA 93
+-- Mostrar el historial de asistencias de los empleados registrados bajo una misma empresa.
+-- =========================================
+-- =========================================
+-- CONSULTA 94
+-- Consultar días de la semana con menor concurrencia al espacio.
+-- =========================================
+-- =========================================
+-- CONSULTA 95
+-- Listar accesos restringidos a zonas exclusivas o VIP.
+-- =========================================
+-- =========================================
+-- CONSULTA 96
+-- Consultar el total de asistencias mensuales agrupadas por tipo de membresía.
+-- =========================================
+-- =========================================
+-- CONSULTA 97
+-- Listar usuarios con más de 20 asistencias registradas en el mes actual.
+-- =========================================
+-- =========================================
+-- CONSULTA 98
+-- Mostrar la última fecha y hora de acceso registrada para cada usuario activo.
+-- =========================================
+-- =========================================
+-- CONSULTA 99-- Consultar asistencias registradas en días festivos o no laborales.
+-- =========================================
+-- =========================================
+-- CONSULTA 100
+-- Resumen consolidado del total de asistencias del mes ordenado de mayor a menor concurrencia.
+-- =========================================

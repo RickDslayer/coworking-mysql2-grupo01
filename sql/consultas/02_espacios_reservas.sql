@@ -1,3 +1,16 @@
+/*
+Proyecto: Gestión de Coworking
+Grupo: 01
+Módulo: Espacios y Reservas
+Archivo: 02_espacios_reservas.sql
+Descripción:
+Consultas 21 a 40 del módulo.
+
+Requisitos:
+Ejecutar previamente DDL y DML.
+*/
+
+
 -- CONSULTA 21
 -- Listar todos los espacios disponibles con su capacidad.
 -- =========================================

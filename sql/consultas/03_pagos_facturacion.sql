@@ -1,3 +1,15 @@
+/*
+Proyecto: Gestión de Coworking
+Grupo: 01
+Módulo: Pagos y Facturación
+Archivo: 03_pagos_facturacion.sql
+Descripción:
+Consultas 41 a 60 del módulo.
+
+Requisitos:
+Ejecutar previamente DDL y DML.
+*/
+
 -- CONSULTA 41
 -- Listar todos los pagos realizados con método tarjeta.
 -- =========================================

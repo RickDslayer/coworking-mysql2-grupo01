@@ -68,6 +68,18 @@
 -- Mostrar los días con más concurrencia en el coworking.
 -- =========================================
 
+/*
+Proyecto: Gestión de Coworking
+Grupo: 01
+Módulo: Accesos y Asistencias
+Archivo: 04_accesos_asistencias.sql
+Descripción:
+Consultas 61 a 80 del módulo.
+
+Requisitos:
+Ejecutar previamente DDL y DML.
+*/
+
 
 -- =========================================
 -- CONSULTA 73

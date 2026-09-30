@@ -1,3 +1,17 @@
+/*
+Proyecto: Gestión de Coworking
+Grupo: 01
+Módulo: Usuarios y Membresías
+Archivo: 01_usuarios_membresias.sql
+Descripción:
+Consultas 01 a 20 del módulo.
+
+Requisitos:
+Ejecutar previamente DDL y DML.
+*/
+
+USE coworking_db;
+
 -- CONSULTA 01
 -- Listar todos los usuarios con su información básica.
 -- =========================================

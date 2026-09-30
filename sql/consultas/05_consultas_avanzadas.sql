@@ -1,3 +1,17 @@
+/*
+Proyecto: Gestión de Coworking
+Grupo: 01
+Módulo: Consultas Avanzadas
+Archivo: 05_consultas_avanzadas.sql
+Descripción:
+Consultas 81 a 100 del módulo.
+Incluye subconsultas, múltiples JOIN, funciones de agregación
+y funciones de ventana.
+
+Requisitos:
+Ejecutar previamente DDL y DML.
+*/
+
 -- CONSULTA 81
 -- Mostrar los usuarios con el mayor gasto acumulado (subconsulta con SUM).
 -- =========================================

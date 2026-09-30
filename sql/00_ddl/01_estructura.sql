@@ -273,7 +273,7 @@ CREATE TABLE factura (
     CONSTRAINT chk_factura_montos   CHECK (total >= 0 AND saldo_pendiente >= 0 AND recargo_aplicado >= 0)
 ) ENGINE = InnoDB;
 
--- Penalizaciones (No Show, cancelación tardía). Va antes de DETALLE_FACTURA
+-- Penalizaciones (No Show, cancelación tardía). Va antes de detalle_factura
 -- porque el detalle la referencia.
 CREATE TABLE penalizacion (
     id_penalizacion  INT AUTO_INCREMENT PRIMARY KEY,
@@ -289,7 +289,7 @@ CREATE TABLE penalizacion (
 
 -- Líneas de cada factura. Cada línea cobra UNA cosa:
 -- una membresía, una reserva, un servicio contratado o una penalización.
-CREATE TABLE detalle (
+CREATE TABLE detalle_factura (
     id_detalle       INT AUTO_INCREMENT PRIMARY KEY,
     id_factura       INT           NOT NULL,
     id_membresia     INT           NULL,

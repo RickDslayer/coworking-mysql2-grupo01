@@ -21,7 +21,7 @@ USE coworking_db;
 -- =====================================================================
 
 -- Empresas a las que pertenecen los clientes corporativos
-CREATE TABLE EMPRESA (
+CREATE TABLE empresa (
     id_empresa      INT AUTO_INCREMENT PRIMARY KEY,
     nombre          VARCHAR(100) NOT NULL,
     nit             VARCHAR(20)  NOT NULL,
@@ -30,7 +30,7 @@ CREATE TABLE EMPRESA (
 ) ENGINE = InnoDB;
 
 -- Clientes del coworking.
-CREATE TABLE USUARIO (
+CREATE TABLE usuario (
     id_usuario        INT AUTO_INCREMENT PRIMARY KEY,
     documento         VARCHAR(20)  NOT NULL,
     nombre            VARCHAR(60)  NOT NULL,
@@ -43,13 +43,13 @@ CREATE TABLE USUARIO (
     id_empresa        INT          NULL,
     CONSTRAINT uq_usuario_documento UNIQUE (documento),
     CONSTRAINT fk_usuario_empresa FOREIGN KEY (id_empresa)
-        REFERENCES EMPRESA (id_empresa)
+        REFERENCES empresa (id_empresa)
         ON DELETE SET NULL ON UPDATE CASCADE
 ) ENGINE = InnoDB;
 
 
 -- Cuentas de acceso al sistema. El rol se corresponde con los roles de MySQL.
-CREATE TABLE CUENTA (
+CREATE TABLE cuenta (
     id_cuenta      INT AUTO_INCREMENT PRIMARY KEY,
     username       VARCHAR(50)  NOT NULL,
     password_hash  VARCHAR(255) NOT NULL,
@@ -60,10 +60,10 @@ CREATE TABLE CUENTA (
     CONSTRAINT uq_cuenta_username UNIQUE (username),
     CONSTRAINT uq_cuenta_usuario  UNIQUE (id_usuario),
     CONSTRAINT fk_cuenta_usuario FOREIGN KEY (id_usuario)
-        REFERENCES USUARIO (id_usuario)
+        REFERENCES usuario (id_usuario)
         ON DELETE CASCADE ON UPDATE CASCADE,
     CONSTRAINT fk_cuenta_empresa FOREIGN KEY (id_empresa)
-        REFERENCES EMPRESA (id_empresa)
+        REFERENCES empresa (id_empresa)
         ON DELETE RESTRICT ON UPDATE RESTRICT,  
     CONSTRAINT chk_cuenta_gerente CHECK (rol <> 'Gerente' OR id_empresa IS NOT NULL)
 ) ENGINE = InnoDB;
@@ -74,7 +74,7 @@ CREATE TABLE CUENTA (
 -- =====================================================================
 
 -- Catálogo de tipos de membresía con su duración y horario de acceso permitido
-CREATE TABLE TIPO_MEMBRESIA (
+CREATE TABLE tipo_membresia (
     id_tipo             INT AUTO_INCREMENT PRIMARY KEY,
     nombre              ENUM('Diaria','Mensual','Corporativa','Premium') NOT NULL,
     precio              DECIMAL(10,2) NOT NULL,
@@ -88,7 +88,7 @@ CREATE TABLE TIPO_MEMBRESIA (
 ) ENGINE = InnoDB;
 
 -- Membresías de cada cliente. 
-CREATE TABLE MEMBRESIA (
+CREATE TABLE membresia (
     id_membresia  INT AUTO_INCREMENT PRIMARY KEY,
     id_usuario    INT  NOT NULL,
     id_tipo       INT  NOT NULL,
@@ -96,16 +96,16 @@ CREATE TABLE MEMBRESIA (
     fecha_inicio  DATE NOT NULL,
     fecha_fin     DATE NOT NULL,
     CONSTRAINT fk_membresia_usuario FOREIGN KEY (id_usuario)
-        REFERENCES USUARIO (id_usuario)
+        REFERENCES usuario (id_usuario)
         ON DELETE CASCADE ON UPDATE CASCADE,
     CONSTRAINT fk_membresia_tipo FOREIGN KEY (id_tipo)
-        REFERENCES TIPO_MEMBRESIA (id_tipo)
+        REFERENCES tipo_membresia (id_tipo)
         ON DELETE RESTRICT ON UPDATE CASCADE,
-    CONSTRAINT chk_membresia_fechas CHECK (fecha_fin > fecha_inicio),
+    CONSTRAINT chk_membresia_fechas CHECK (fecha_fin > fecha_inicio)
 ) ENGINE = InnoDB;
 
 -- Historial de cambios de tipo de membresía (lo llena un trigger)
-CREATE TABLE LOG_MEMBRESIA (
+CREATE TABLE log_membresia (
     id_log            INT AUTO_INCREMENT PRIMARY KEY,
     id_membresia      INT          NULL,
     id_tipo_anterior  INT          NOT NULL,
@@ -113,13 +113,13 @@ CREATE TABLE LOG_MEMBRESIA (
     fecha_cambio      DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
     usuario_bd        VARCHAR(100) NOT NULL DEFAULT 'sistema',
     CONSTRAINT fk_log_membresia_membresia FOREIGN KEY (id_membresia)
-        REFERENCES MEMBRESIA (id_membresia)
+        REFERENCES membresia (id_membresia)
         ON DELETE SET NULL ON UPDATE CASCADE,
     CONSTRAINT fk_log_membresia_tipo_ant FOREIGN KEY (id_tipo_anterior)
-        REFERENCES TIPO_MEMBRESIA (id_tipo)
+        REFERENCES tipo_membresia (id_tipo)
         ON DELETE RESTRICT ON UPDATE CASCADE,
     CONSTRAINT fk_log_membresia_tipo_nue FOREIGN KEY (id_tipo_nuevo)
-        REFERENCES TIPO_MEMBRESIA (id_tipo)
+        REFERENCES tipo_membresia (id_tipo)
         ON DELETE RESTRICT ON UPDATE CASCADE
 ) ENGINE = InnoDB;
 
@@ -129,14 +129,14 @@ CREATE TABLE LOG_MEMBRESIA (
 -- =====================================================================
 
 -- Catálogo de tipos de espacio
-CREATE TABLE TIPO_ESPACIO (
+CREATE TABLE tipo_espacio (
     id_tipo_espacio  INT AUTO_INCREMENT PRIMARY KEY,
     nombre           ENUM('Escritorio flexible','Oficina privada','Sala de reuniones','Sala de eventos') NOT NULL,
     CONSTRAINT uq_tipo_espacio_nombre UNIQUE (nombre)
 ) ENGINE = InnoDB;
 
 -- Espacios físicos que se pueden reservar
-CREATE TABLE ESPACIO (
+CREATE TABLE espacio (
     id_espacio        INT AUTO_INCREMENT PRIMARY KEY,
     id_tipo_espacio   INT           NOT NULL,
     nombre            VARCHAR(60)   NOT NULL,
@@ -145,14 +145,14 @@ CREATE TABLE ESPACIO (
     estado            ENUM('Disponible','Mantenimiento','Inactivo') NOT NULL DEFAULT 'Disponible',
     CONSTRAINT uq_espacio_nombre UNIQUE (nombre),
     CONSTRAINT fk_espacio_tipo FOREIGN KEY (id_tipo_espacio)
-        REFERENCES TIPO_ESPACIO (id_tipo_espacio)
+        REFERENCES tipo_espacio (id_tipo_espacio)
         ON DELETE RESTRICT ON UPDATE CASCADE,
     CONSTRAINT chk_espacio_capacidad CHECK (capacidad_maxima > 0),
     CONSTRAINT chk_espacio_precio    CHECK (precio_hora >= 0)
 ) ENGINE = InnoDB;
 
 -- Horario de disponibilidad de cada espacio por día (1 = lunes ... 7 = domingo)
-CREATE TABLE HORARIO_ESPACIO (
+CREATE TABLE horario_espacio (
     id_horario     INT AUTO_INCREMENT PRIMARY KEY,
     id_espacio     INT     NOT NULL,
     dia_semana     TINYINT NOT NULL,
@@ -160,14 +160,14 @@ CREATE TABLE HORARIO_ESPACIO (
     hora_cierre    TIME    NOT NULL,
     CONSTRAINT uq_horario_espacio_dia UNIQUE (id_espacio, dia_semana),
     CONSTRAINT fk_horario_espacio FOREIGN KEY (id_espacio)
-        REFERENCES ESPACIO (id_espacio)
+        REFERENCES espacio (id_espacio)
         ON DELETE CASCADE ON UPDATE CASCADE,
     CONSTRAINT chk_horario_dia  CHECK (dia_semana BETWEEN 1 AND 7),
     CONSTRAINT chk_horario_horas CHECK (hora_cierre > hora_apertura)
 ) ENGINE = InnoDB;
 
 -- Reservas de espacios
-CREATE TABLE RESERVA (
+CREATE TABLE reserva (
     id_reserva            INT AUTO_INCREMENT PRIMARY KEY,
     id_usuario            INT      NOT NULL,
     id_espacio            INT      NOT NULL,
@@ -179,18 +179,18 @@ CREATE TABLE RESERVA (
     fecha_creacion        DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     recordatorio_enviado  BOOLEAN  NOT NULL DEFAULT FALSE,
     CONSTRAINT fk_reserva_usuario FOREIGN KEY (id_usuario)
-        REFERENCES USUARIO (id_usuario)
+        REFERENCES usuario (id_usuario)
         ON DELETE CASCADE ON UPDATE CASCADE,
     CONSTRAINT fk_reserva_espacio FOREIGN KEY (id_espacio)
-        REFERENCES ESPACIO (id_espacio)
+        REFERENCES espacio (id_espacio)
         ON DELETE RESTRICT ON UPDATE CASCADE,
     CONSTRAINT chk_reserva_fechas     CHECK (fecha_fin > fecha_inicio),
-    CONSTRAINT chk_reserva_asistentes CHECK (num_asistentes > 0),
+    CONSTRAINT chk_reserva_asistentes CHECK (num_asistentes > 0)
 
 ) ENGINE = InnoDB;
 
 -- Historial de cambios de estado de las reservas (lo llena un trigger)
-CREATE TABLE LOG_RESERVA (
+CREATE TABLE log_reserva (
     id_log           INT AUTO_INCREMENT PRIMARY KEY,
     id_reserva       INT          NULL,
     estado_anterior  VARCHAR(30)  NOT NULL,
@@ -198,7 +198,7 @@ CREATE TABLE LOG_RESERVA (
     motivo           VARCHAR(255) NOT NULL DEFAULT 'N/A',
     fecha            DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT fk_log_reserva FOREIGN KEY (id_reserva)
-        REFERENCES RESERVA (id_reserva)
+        REFERENCES reserva (id_reserva)
         ON DELETE SET NULL ON UPDATE CASCADE
 ) ENGINE = InnoDB;
 
@@ -208,7 +208,7 @@ CREATE TABLE LOG_RESERVA (
 -- =====================================================================
 
 -- Catálogo de servicios (internet premium, lockers, café, impresiones...)
-CREATE TABLE SERVICIO (
+CREATE TABLE servicio (
     id_servicio  INT AUTO_INCREMENT PRIMARY KEY,
     nombre       VARCHAR(60)   NOT NULL,
     precio       DECIMAL(10,2) NOT NULL,
@@ -217,7 +217,7 @@ CREATE TABLE SERVICIO (
 ) ENGINE = InnoDB;
 
 -- Servicios contratados por un cliente, sueltos o dentro de una reserva
-CREATE TABLE SERVICIO_CONTRATADO (
+CREATE TABLE servicio_contratado (
     id_contratado  INT AUTO_INCREMENT PRIMARY KEY,
     id_usuario     INT      NOT NULL,
     id_servicio    INT      NOT NULL,
@@ -226,13 +226,13 @@ CREATE TABLE SERVICIO_CONTRATADO (
     estado         ENUM('Activo','Bloqueado','Cancelado') NOT NULL DEFAULT 'Activo',
     fecha          DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT fk_contratado_usuario FOREIGN KEY (id_usuario)
-        REFERENCES USUARIO (id_usuario)
+        REFERENCES usuario (id_usuario)
         ON DELETE CASCADE ON UPDATE CASCADE,
     CONSTRAINT fk_contratado_servicio FOREIGN KEY (id_servicio)
-        REFERENCES SERVICIO (id_servicio)
+        REFERENCES servicio (id_servicio)
         ON DELETE RESTRICT ON UPDATE CASCADE,
     CONSTRAINT fk_contratado_reserva FOREIGN KEY (id_reserva)
-        REFERENCES RESERVA (id_reserva)
+        REFERENCES reserva (id_reserva)
         ON DELETE SET NULL ON UPDATE CASCADE,
     CONSTRAINT chk_contratado_cantidad CHECK (cantidad > 0)
 ) ENGINE = InnoDB;
@@ -243,14 +243,14 @@ CREATE TABLE SERVICIO_CONTRATADO (
 -- =====================================================================
 
 -- Catálogo de métodos de pago
-CREATE TABLE METODO_PAGO (
+CREATE TABLE metodo_pago (
     id_metodo  INT AUTO_INCREMENT PRIMARY KEY,
     nombre     ENUM('Efectivo','Tarjeta','Transferencia','PayPal') NOT NULL,
     CONSTRAINT uq_metodo_pago_nombre UNIQUE (nombre)
 ) ENGINE = InnoDB;
 
 -- Facturas. Individual (id_usuario) o consolidada para una empresa (id_empresa).
-CREATE TABLE FACTURA (
+CREATE TABLE factura (
     id_factura         INT AUTO_INCREMENT PRIMARY KEY,
     id_usuario         INT           NULL,
     id_empresa         INT           NULL,
@@ -263,33 +263,33 @@ CREATE TABLE FACTURA (
     motivo_anulacion   VARCHAR(255)  NULL,
     -- RESTRICT: MySQL no permite acciones CASCADE en columnas usadas en un CHECK
     CONSTRAINT fk_factura_usuario FOREIGN KEY (id_usuario)
-        REFERENCES USUARIO (id_usuario)
+        REFERENCES usuario (id_usuario)
         ON DELETE RESTRICT ON UPDATE RESTRICT,
     CONSTRAINT fk_factura_empresa FOREIGN KEY (id_empresa)
-        REFERENCES EMPRESA (id_empresa)
+        REFERENCES empresa (id_empresa)
         ON DELETE RESTRICT ON UPDATE RESTRICT,
     CONSTRAINT chk_factura_titular  CHECK (id_usuario IS NOT NULL OR id_empresa IS NOT NULL),
     CONSTRAINT chk_factura_fechas   CHECK (fecha_vencimiento >= fecha_emision),
-    CONSTRAINT chk_factura_montos   CHECK (total >= 0 AND saldo_pendiente >= 0 AND recargo_aplicado >= 0),
+    CONSTRAINT chk_factura_montos   CHECK (total >= 0 AND saldo_pendiente >= 0 AND recargo_aplicado >= 0)
 ) ENGINE = InnoDB;
 
 -- Penalizaciones (No Show, cancelación tardía). Va antes de DETALLE_FACTURA
 -- porque el detalle la referencia.
-CREATE TABLE PENALIZACION (
+CREATE TABLE penalizacion (
     id_penalizacion  INT AUTO_INCREMENT PRIMARY KEY,
     id_reserva       INT           NOT NULL,
     monto            DECIMAL(10,2) NOT NULL,
     motivo           VARCHAR(255)  NOT NULL DEFAULT 'N/A',
     fecha            DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT fk_penalizacion_reserva FOREIGN KEY (id_reserva)
-        REFERENCES RESERVA (id_reserva)
+        REFERENCES reserva (id_reserva)
         ON DELETE RESTRICT ON UPDATE CASCADE,
     CONSTRAINT chk_penalizacion_monto CHECK (monto > 0)
 ) ENGINE = InnoDB;
 
 -- Líneas de cada factura. Cada línea cobra UNA cosa:
 -- una membresía, una reserva, un servicio contratado o una penalización.
-CREATE TABLE DETALLE_FACTURA (
+CREATE TABLE detalle (
     id_detalle       INT AUTO_INCREMENT PRIMARY KEY,
     id_factura       INT           NOT NULL,
     id_membresia     INT           NULL,
@@ -299,25 +299,25 @@ CREATE TABLE DETALLE_FACTURA (
     descripcion      VARCHAR(255)  NOT NULL,
     monto            DECIMAL(12,2) NOT NULL,
     CONSTRAINT fk_detalle_factura FOREIGN KEY (id_factura)
-        REFERENCES FACTURA (id_factura)
+        REFERENCES factura (id_factura)
         ON DELETE CASCADE ON UPDATE CASCADE,
     CONSTRAINT fk_detalle_membresia FOREIGN KEY (id_membresia)
-        REFERENCES MEMBRESIA (id_membresia)
+        REFERENCES membresia (id_membresia)
         ON DELETE SET NULL ON UPDATE CASCADE,
     CONSTRAINT fk_detalle_reserva FOREIGN KEY (id_reserva)
-        REFERENCES RESERVA (id_reserva)
+        REFERENCES reserva (id_reserva)
         ON DELETE SET NULL ON UPDATE CASCADE,
     CONSTRAINT fk_detalle_contratado FOREIGN KEY (id_contratado)
-        REFERENCES SERVICIO_CONTRATADO (id_contratado)
+        REFERENCES servicio_contratado (id_contratado)
         ON DELETE SET NULL ON UPDATE CASCADE,
     CONSTRAINT fk_detalle_penalizacion FOREIGN KEY (id_penalizacion)
-        REFERENCES PENALIZACION (id_penalizacion)
+        REFERENCES penalizacion (id_penalizacion)
         ON DELETE SET NULL ON UPDATE CASCADE,
     CONSTRAINT chk_detalle_monto CHECK (monto >= 0)
 ) ENGINE = InnoDB;
 
 -- Pagos. id_factura puede llegar NULL: el trigger crea la factura automáticamente.
-CREATE TABLE PAGO (
+CREATE TABLE pago (
     id_pago     INT AUTO_INCREMENT PRIMARY KEY,
     id_factura  INT           NULL,
     id_metodo   INT           NOT NULL,
@@ -325,28 +325,28 @@ CREATE TABLE PAGO (
     fecha_pago  DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
     estado      ENUM('Pagado','Pendiente','Cancelado') NOT NULL DEFAULT 'Pagado',
     CONSTRAINT fk_pago_factura FOREIGN KEY (id_factura)
-        REFERENCES FACTURA (id_factura)
+        REFERENCES factura (id_factura)
         ON DELETE RESTRICT ON UPDATE CASCADE,
     CONSTRAINT fk_pago_metodo FOREIGN KEY (id_metodo)
-        REFERENCES METODO_PAGO (id_metodo)
+        REFERENCES metodo_pago (id_metodo)
         ON DELETE RESTRICT ON UPDATE CASCADE,
-    CONSTRAINT chk_pago_monto CHECK (monto > 0),
+    CONSTRAINT chk_pago_monto CHECK (monto > 0)
 ) ENGINE = InnoDB;
 
 -- Registro de pagos anulados (lo llena un trigger)
-CREATE TABLE LOG_PAGO_ANULADO (
+CREATE TABLE log_pago_anulado (
     id_log           INT AUTO_INCREMENT PRIMARY KEY,
     id_pago          INT           NULL,
     monto            DECIMAL(12,2) NOT NULL,
     motivo           VARCHAR(255)  NOT NULL DEFAULT 'N/A',
     fecha_anulacion  DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT fk_log_pago FOREIGN KEY (id_pago)
-        REFERENCES PAGO (id_pago)
+        REFERENCES pago (id_pago)
         ON DELETE SET NULL ON UPDATE CASCADE
 ) ENGINE = InnoDB;
 
 -- Reembolsos por cancelación de reservas pagadas
-CREATE TABLE REEMBOLSO (
+CREATE TABLE reembolso (
     id_reembolso  INT AUTO_INCREMENT PRIMARY KEY,
     id_reserva    INT           NOT NULL,
     id_pago       INT           NOT NULL,
@@ -354,10 +354,10 @@ CREATE TABLE REEMBOLSO (
     motivo        VARCHAR(255)  NOT NULL DEFAULT 'N/A',
     fecha         DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT fk_reembolso_reserva FOREIGN KEY (id_reserva)
-        REFERENCES RESERVA (id_reserva)
+        REFERENCES reserva (id_reserva)
         ON DELETE RESTRICT ON UPDATE CASCADE,
     CONSTRAINT fk_reembolso_pago FOREIGN KEY (id_pago)
-        REFERENCES PAGO (id_pago)
+        REFERENCES pago (id_pago)
         ON DELETE RESTRICT ON UPDATE CASCADE,
     CONSTRAINT chk_reembolso_monto CHECK (monto > 0)
 ) ENGINE = InnoDB;
@@ -368,7 +368,7 @@ CREATE TABLE REEMBOLSO (
 -- =====================================================================
 
 -- Tarjetas RFID y códigos QR de cada cliente
-CREATE TABLE CREDENCIAL (
+CREATE TABLE credencial (
     id_credencial  INT AUTO_INCREMENT PRIMARY KEY,
     id_usuario     INT          NOT NULL,
     tipo           ENUM('RFID','QR') NOT NULL,
@@ -376,13 +376,13 @@ CREATE TABLE CREDENCIAL (
     estado         ENUM('Activa','Inactiva','Revocada') NOT NULL DEFAULT 'Activa',
     CONSTRAINT uq_credencial_codigo UNIQUE (codigo),
     CONSTRAINT fk_credencial_usuario FOREIGN KEY (id_usuario)
-        REFERENCES USUARIO (id_usuario)
+        REFERENCES usuario (id_usuario)
         ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE = InnoDB;
 
 -- Cada fila es un intento de ingreso. Si es permitido, también es la asistencia
 -- (entrada + salida). Si el código no existe, id_credencial e id_usuario quedan NULL.
-CREATE TABLE ACCESO (
+CREATE TABLE acceso (
     id_acceso           INT AUTO_INCREMENT PRIMARY KEY,
     id_credencial       INT          NULL,
     id_usuario          INT          NULL,
@@ -395,26 +395,26 @@ CREATE TABLE ACCESO (
     resultado           ENUM('Permitido','Rechazado') NOT NULL,
     motivo_rechazo      VARCHAR(100) NULL,
     CONSTRAINT fk_acceso_credencial FOREIGN KEY (id_credencial)
-        REFERENCES CREDENCIAL (id_credencial)
+        REFERENCES credencial (id_credencial)
         ON DELETE SET NULL ON UPDATE CASCADE,
     CONSTRAINT fk_acceso_usuario FOREIGN KEY (id_usuario)
-        REFERENCES USUARIO (id_usuario)
+        REFERENCES usuario (id_usuario)
         ON DELETE SET NULL ON UPDATE CASCADE,
     CONSTRAINT fk_acceso_reserva FOREIGN KEY (id_reserva)
-        REFERENCES RESERVA (id_reserva)
+        REFERENCES reserva (id_reserva)
         ON DELETE SET NULL ON UPDATE CASCADE,
-    CONSTRAINT chk_acceso_salida CHECK (fecha_hora_salida IS NULL OR fecha_hora_salida > fecha_hora_entrada),
+    CONSTRAINT chk_acceso_salida CHECK (fecha_hora_salida IS NULL OR fecha_hora_salida > fecha_hora_entrada)
 ) ENGINE = InnoDB;
 
 -- Registro de intentos de acceso rechazados (lo llena un trigger)
-CREATE TABLE LOG_ACCESO_RECHAZADO (
+CREATE TABLE log_acceso_rechazado (
     id_log        INT AUTO_INCREMENT PRIMARY KEY,
     id_acceso     INT          NULL,
     codigo_leido  VARCHAR(100) NOT NULL,
     motivo        VARCHAR(100) NOT NULL DEFAULT 'N/A',
     fecha         DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT fk_log_acceso FOREIGN KEY (id_acceso)
-        REFERENCES ACCESO (id_acceso)
+        REFERENCES acceso (id_acceso)
         ON DELETE SET NULL ON UPDATE CASCADE
 ) ENGINE = InnoDB;
 
@@ -426,7 +426,7 @@ CREATE TABLE LOG_ACCESO_RECHAZADO (
 -- Recordatorios, alertas y reportes que generan los eventos.
 -- Destinatario: un cliente (id_usuario), una cuenta del personal (id_cuenta)
 -- o un rol completo (destinatario_rol).
-CREATE TABLE NOTIFICACION (
+CREATE TABLE notificacion (
     id_notificacion   INT AUTO_INCREMENT PRIMARY KEY,
     id_usuario        INT          NULL,
     id_cuenta         INT          NULL,
@@ -438,9 +438,9 @@ CREATE TABLE NOTIFICACION (
     enviada           BOOLEAN      NOT NULL DEFAULT FALSE,
     fecha_envio       DATETIME     NULL,
     CONSTRAINT fk_notificacion_usuario FOREIGN KEY (id_usuario)
-        REFERENCES USUARIO (id_usuario)
+        REFERENCES usuario (id_usuario)
         ON DELETE CASCADE ON UPDATE CASCADE,
     CONSTRAINT fk_notificacion_cuenta FOREIGN KEY (id_cuenta)
-        REFERENCES CUENTA (id_cuenta)
-        ON DELETE CASCADE ON UPDATE CASCADE,
+        REFERENCES cuenta (id_cuenta)
+        ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE = InnoDB;

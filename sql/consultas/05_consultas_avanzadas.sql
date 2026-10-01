@@ -156,30 +156,98 @@ LIMIT 3;
 -- Calcular ingresos promedio por tipo de membresía (agrupado con AVG).
 -- =========================================
 
+SELECT
+    tip.nombre AS tipo_membresia,
+    COUNT(det.id_detalle) AS membresias_cobradas,
+    AVG(det.monto) AS ingreso_promedio
+FROM detalle_factura AS det
+INNER JOIN factura AS fac        ON fac.id_factura   = det.id_factura
+INNER JOIN membresia AS mem      ON mem.id_membresia = det.id_membresia
+INNER JOIN tipo_membresia AS tip ON tip.id_tipo      = mem.id_tipo
+WHERE fac.estado <> 'Anulada'
+GROUP BY tip.id_tipo, tip.nombre
+ORDER BY ingreso_promedio DESC;
 
 -- =========================================
 -- CONSULTA 92
 -- Mostrar usuarios que pagan solo con un método de pago (subconsulta).
 -- =========================================
 
+SELECT
+    usu.id_usuario,
+    usu.nombre,
+    usu.apellidos,
+    met.nombre AS metodo_unico,
+    uni.total_pagos AS total_pagos
+FROM usuario AS usu
+INNER JOIN (
+    SELECT
+        fac.id_usuario,
+        MIN(pag.id_metodo) AS id_metodo,
+        COUNT(*) AS total_pagos
+    FROM pago AS pag
+    INNER JOIN factura AS fac ON fac.id_factura = pag.id_factura
+    WHERE pag.estado = 'Pagado'
+      AND fac.id_usuario IS NOT NULL
+    GROUP BY fac.id_usuario
+    HAVING COUNT(DISTINCT pag.id_metodo) = 1
+) AS uni ON uni.id_usuario = usu.id_usuario
+INNER JOIN metodo_pago AS met ON met.id_metodo = uni.id_metodo
+ORDER BY uni.total_pagos DESC, usu.id_usuario;
 
 -- =========================================
 -- CONSULTA 93
 -- Mostrar reservas canceladas por usuarios que nunca asistieron.
 -- =========================================
 
+SELECT
+    res.id_reserva,
+    usu.id_usuario,
+    usu.nombre,
+    usu.apellidos,
+    esp.nombre AS espacio,
+    res.fecha_inicio,
+    res.fecha_fin,
+    res.estado
+FROM reserva AS res
+INNER JOIN usuario AS usu ON usu.id_usuario = res.id_usuario
+INNER JOIN espacio AS esp ON esp.id_espacio = res.id_espacio
+WHERE res.estado = 'No Show'
+ORDER BY usu.id_usuario, res.fecha_inicio;
 
 -- =========================================
 -- CONSULTA 94
 -- Mostrar facturas con pagos parciales y calcular saldo pendiente.
 -- =========================================
 
+SELECT
+    fac.id_factura,
+    fac.total,
+    fac.recargo_aplicado,
+    SUM(pag.monto) AS total_pagado,
+    fac.total + fac.recargo_aplicado - SUM(pag.monto) AS saldo_pendiente_calculado
+FROM factura AS fac
+INNER JOIN pago AS pag ON pag.id_factura = fac.id_factura
+WHERE fac.estado = 'Parcial'
+  AND pag.estado = 'Pagado'
+GROUP BY fac.id_factura, fac.total, fac.recargo_aplicado
+ORDER BY fac.id_factura;
 
 -- =========================================
 -- CONSULTA 95
 -- Calcular la facturación total de cada empresa y ordenarla de mayor a menor.
 -- =========================================
 
+
+SELECT 
+    emp.id_empresa,
+    emp.nombre AS nombre_empresa,
+    emp.nit,
+    COALESCE(SUM(fac.total), 0) AS facturacion_total
+FROM empresa AS emp
+LEFT JOIN factura AS fac ON emp.id_empresa = fac.id_empresa AND fac.estado <> 'Anulada'
+GROUP BY emp.id_empresa, emp.nombre, emp.nit
+ORDER BY facturacion_total DESC;
 
 -- =========================================
 -- CONSULTA 96

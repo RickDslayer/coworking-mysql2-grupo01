@@ -1,3 +1,16 @@
+/*
+Proyecto: Gestión de Coworking
+Grupo: 01
+Módulo: Accesos y Asistencias
+Archivo: 04_accesos_asistencias.sql
+Descripción:
+Consultas 61 a 80 del módulo.
+
+Requisitos:
+Ejecutar previamente DDL y DML.
+*/
+
+-- =========================================
 -- CONSULTA 61
 -- Listar todos los accesos registrados hoy.
 -- =========================================
@@ -110,42 +123,91 @@ ORDER BY fecha;
 -- Mostrar usuarios que han accedido pero no tienen reservas.
 -- =========================================
 
+SELECT
+    usu.id_usuario,
+    usu.nombre,
+    usu.apellidos
+FROM usuario AS usu
+WHERE usu.id_usuario IN (SELECT acc.id_usuario
+                           FROM acceso AS acc
+                          WHERE acc.resultado = 'Permitido')
+  AND usu.id_usuario NOT IN (SELECT res.id_usuario
+                               FROM reserva AS res)
+ORDER BY usu.id_usuario;
 
 -- =========================================
 -- CONSULTA 72
 -- Mostrar los días con más concurrencia en el coworking.
 -- =========================================
 
-/*
-Proyecto: Gestión de Coworking
-Grupo: 01
-Módulo: Accesos y Asistencias
-Archivo: 04_accesos_asistencias.sql
-Descripción:
-Consultas 61 a 80 del módulo.
-
-Requisitos:
-Ejecutar previamente DDL y DML.
-*/
-
+SELECT
+    DATE(acc.fecha_hora_entrada) AS dia,
+    COUNT(*) AS total_ingresos,
+    COUNT(DISTINCT acc.id_usuario) AS usuarios_distintos
+FROM acceso AS acc
+WHERE acc.resultado = 'Permitido'
+GROUP BY DATE(acc.fecha_hora_entrada)
+ORDER BY total_ingresos DESC
+LIMIT 10;
 
 -- =========================================
 -- CONSULTA 73
 -- Mostrar usuarios que entraron pero no registraron salida.
 -- =========================================
 
+SELECT
+    usu.id_usuario,
+    usu.nombre,
+    usu.apellidos,
+    acc.id_acceso,
+    acc.fecha_hora_entrada
+FROM acceso AS acc
+JOIN usuario AS usu ON usu.id_usuario = acc.id_usuario
+WHERE acc.fecha_hora_salida IS NULL
+  AND acc.resultado = 'Permitido'
+ORDER BY acc.fecha_hora_entrada;
 
 -- =========================================
 -- CONSULTA 74
 -- Mostrar accesos de usuarios con membresía vencida.
 -- =========================================
 
+SELECT
+    usu.id_usuario,
+    usu.nombre,
+    usu.apellidos,
+    acc.id_acceso,
+    acc.fecha_hora_entrada,
+    acc.resultado,
+    acc.motivo_rechazo
+FROM acceso AS acc
+JOIN usuario AS usu ON usu.id_usuario = acc.id_usuario
+WHERE EXISTS (SELECT 1
+                FROM membresia AS mem
+               WHERE mem.id_usuario = usu.id_usuario
+                 AND mem.estado = 'Vencida')
+  AND NOT EXISTS (SELECT 1
+                    FROM membresia AS mem
+                   WHERE mem.id_usuario = usu.id_usuario
+                     AND mem.estado IN ('Activa', 'Suspendida'))
+ORDER BY usu.id_usuario, acc.fecha_hora_entrada;
 
 -- =========================================
 -- CONSULTA 75
 -- Mostrar accesos de usuarios corporativos por empresa.
 -- =========================================
 
+SELECT
+    emp.id_empresa,
+    emp.nombre AS empresa,
+    COUNT(acc.id_acceso) AS total_accesos,
+    COUNT(DISTINCT usu.id_usuario) AS usuarios_que_accedieron
+FROM acceso AS acc
+INNER JOIN usuario AS usu ON usu.id_usuario = acc.id_usuario
+INNER JOIN empresa AS emp ON emp.id_empresa = usu.id_empresa
+WHERE acc.resultado = 'Permitido'
+GROUP BY emp.id_empresa, emp.nombre
+ORDER BY total_accesos DESC;
 
 -- =========================================
 -- CONSULTA 76

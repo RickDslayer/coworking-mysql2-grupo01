@@ -75,6 +75,20 @@ Ejecutar previamente DDL y DML.
 -- Mostrar reservas de más de 8 horas.
 -- =========================================
 
+SELECT
+    res.id_reserva,
+    usu.nombre,
+    usu.apellidos,
+    esp.nombre AS espacio,
+    res.fecha_inicio,
+    res.fecha_fin,
+    TIMESTAMPDIFF(MINUTE, res.fecha_inicio, res.fecha_fin) / 60 AS horas,
+    res.estado
+FROM reserva AS res
+INNER JOIN usuario AS usu ON usu.id_usuario = res.id_usuario
+INNER JOIN espacio AS esp ON esp.id_espacio = res.id_espacio
+WHERE TIMESTAMPDIFF(MINUTE, res.fecha_inicio, res.fecha_fin) / 60 > 8
+ORDER BY horas DESC, res.fecha_inicio;
 
 -- =========================================
 -- CONSULTA 32

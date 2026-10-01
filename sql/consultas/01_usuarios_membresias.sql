@@ -76,6 +76,10 @@ USE coworking_db;
 -- Calcular el promedio de edad de los usuarios.
 -- =========================================
 
+    SELECT 
+    AVG( YEAR(CURDATE()) - YEAR(fecha_nacimiento) ) AS promedio_edad
+FROM 
+    usuario;
 
 -- =========================================
 -- CONSULTA 12

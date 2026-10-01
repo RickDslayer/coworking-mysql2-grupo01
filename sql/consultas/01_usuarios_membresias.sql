@@ -46,30 +46,67 @@ USE coworking_db;
 -- Mostrar el top 10 de usuarios con más antigüedad en el coworking.
 -- =========================================
 
+SELECT u.id_usuario,
+       CONCAT(u.nombre, ' ', u.apellidos) AS nombre_completo,
+       u.fecha_registro,
+       TIMESTAMPDIFF(MONTH, u.fecha_registro, @hoy) AS meses_antiguedad
+FROM USUARIO u
+ORDER BY u.fecha_registro ASC
+LIMIT 10;
 
 -- =========================================
 -- CONSULTA 07
 -- Listar usuarios que pertenecen a una empresa específica.
 -- =========================================
 
+SELECT u.id_usuario,
+       CONCAT(u.nombre, ' ', u.apellidos) AS nombre_completo,
+       u.email,
+       u.telefono
+FROM USUARIO u
+JOIN EMPRESA e ON e.id_empresa = u.id_empresa
+WHERE e.nombre = 'Andes Software SAS'
+ORDER BY u.apellidos;
 
 -- =========================================
 -- CONSULTA 08
 -- Contar cuántos usuarios están asociados a cada empresa.
 -- =========================================
 
+SELECT e.id_empresa,
+       e.nombre AS empresa,
+       COUNT(u.id_usuario) AS total_usuarios
+FROM EMPRESA e
+LEFT JOIN USUARIO u ON u.id_empresa = e.id_empresa
+GROUP BY e.id_empresa, e.nombre
+ORDER BY total_usuarios DESC;
 
 -- =========================================
 -- CONSULTA 09
 -- Mostrar usuarios que nunca han hecho una reserva.
 -- =========================================
 
+SELECT u.id_usuario,
+       CONCAT(u.nombre, ' ', u.apellidos) AS nombre_completo,
+       u.fecha_registro
+FROM USUARIO u
+WHERE NOT EXISTS (SELECT 1 FROM RESERVA r WHERE r.id_usuario = u.id_usuario);
 
 -- =========================================
 -- CONSULTA 10
 -- Mostrar usuarios con más de 5 reservas activas en el mes.
 -- =========================================
 
+SELECT u.id_usuario,
+       CONCAT(u.nombre, ' ', u.apellidos) AS nombre_completo,
+       COUNT(*) AS reservas_mes
+FROM USUARIO u
+JOIN RESERVA r ON r.id_usuario = u.id_usuario
+WHERE r.estado IN ('Pendiente de Confirmacion', 'Confirmada', 'Finalizada')
+  AND YEAR(r.fecha_inicio)  = YEAR(@hoy)
+  AND MONTH(r.fecha_inicio) = MONTH(@hoy)
+GROUP BY u.id_usuario, nombre_completo
+HAVING COUNT(*) > 5;
 
 -- =========================================
 -- CONSULTA 11

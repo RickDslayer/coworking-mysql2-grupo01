@@ -45,30 +45,102 @@ Ejecutar previamente DDL y DML.
 -- Mostrar el espacio más reservado del último mes.
 -- =========================================
 
+SELECT e.id_espacio,
+       e.nombre AS espacio,
+       COUNT(*) AS reservas
+FROM RESERVA r
+JOIN ESPACIO e ON e.id_espacio = r.id_espacio
+WHERE r.fecha_inicio BETWEEN @hoy - INTERVAL 1 MONTH AND @hoy + INTERVAL 1 DAY
+  AND r.estado <> 'Cancelada'
+GROUP BY e.id_espacio, e.nombre
+HAVING COUNT(*) = (SELECT MAX(total) FROM (
+                       SELECT COUNT(*) AS total
+                       FROM RESERVA
+                       WHERE fecha_inicio BETWEEN @hoy - INTERVAL 1 MONTH AND @hoy + INTERVAL 1 DAY
+                         AND estado <> 'Cancelada'
+                       GROUP BY id_espacio) t);
 
 -- =========================================
 -- CONSULTA 27
 -- Listar usuarios que más han reservado salas privadas.
 -- =========================================
 
+SELECT u.id_usuario,
+       CONCAT(u.nombre, ' ', u.apellidos) AS nombre_completo,
+       COUNT(*) AS reservas_oficina_privada
+FROM RESERVA r
+JOIN USUARIO u ON u.id_usuario = r.id_usuario
+JOIN ESPACIO e ON e.id_espacio = r.id_espacio
+JOIN TIPO_ESPACIO te ON te.id_tipo_espacio = e.id_tipo_espacio
+WHERE te.nombre = 'Oficina privada'
+  AND r.estado <> 'Cancelada'
+GROUP BY u.id_usuario, nombre_completo
+ORDER BY reservas_oficina_privada DESC
+LIMIT 10;
 
 -- =========================================
 -- CONSULTA 28
 -- Mostrar reservas que exceden la capacidad máxima del espacio.
 -- =========================================
 
+SELECT r.id_reserva,
+       e.nombre AS espacio,
+       r.fecha_inicio,
+       r.num_asistentes,
+       e.capacidad_maxima,
+       r.num_asistentes - e.capacidad_maxima AS exceso
+FROM RESERVA r
+JOIN ESPACIO e ON e.id_espacio = r.id_espacio
+WHERE r.num_asistentes > e.capacidad_maxima;
 
 -- =========================================
 -- CONSULTA 29
 -- Listar espacios que no se han reservado en la última semana.
 -- =========================================
 
+SELECT e.id_espacio,
+       e.nombre AS espacio,
+       e.estado
+FROM ESPACIO e
+WHERE NOT EXISTS (SELECT 1 FROM RESERVA r
+                  WHERE r.id_espacio = e.id_espacio
+                    AND r.estado <> 'Cancelada'
+                    AND DATE(r.fecha_inicio) BETWEEN @hoy - INTERVAL 7 DAY AND @hoy);
 
 -- =========================================
 -- CONSULTA 30
 -- Calcular la tasa de ocupación promedio de cada espacio.
 -- =========================================
 
+WITH RECURSIVE dias AS (
+    SELECT @hoy - INTERVAL 89 DAY AS dia
+    UNION ALL
+    SELECT dia + INTERVAL 1 DAY FROM dias WHERE dia < @hoy
+),
+disponible AS (
+    SELECT h.id_espacio,
+           SUM(TIMESTAMPDIFF(MINUTE, h.hora_apertura, h.hora_cierre)) / 60 AS horas_disponibles
+    FROM dias d
+    JOIN HORARIO_ESPACIO h ON h.dia_semana = WEEKDAY(d.dia) + 1
+    GROUP BY h.id_espacio
+),
+ocupado AS (
+    SELECT id_espacio,
+           SUM(TIMESTAMPDIFF(MINUTE, fecha_inicio, fecha_fin)) / 60 AS horas_reservadas
+    FROM RESERVA
+    WHERE estado IN ('Confirmada', 'Finalizada', 'No Show')
+      AND DATE(fecha_inicio) BETWEEN @hoy - INTERVAL 89 DAY AND @hoy
+    GROUP BY id_espacio
+)
+SELECT e.id_espacio,
+       e.nombre                                                      AS espacio,
+       ROUND(COALESCE(o.horas_reservadas, 0), 1)                     AS horas_reservadas,
+       ROUND(d.horas_disponibles, 1)                                 AS horas_disponibles,
+       ROUND(COALESCE(o.horas_reservadas, 0) * 100 / d.horas_disponibles, 2) AS tasa_ocupacion_pct
+FROM ESPACIO e
+JOIN disponible d    ON d.id_espacio = e.id_espacio
+LEFT JOIN ocupado o  ON o.id_espacio = e.id_espacio
+ORDER BY tasa_ocupacion_pct DESC;
 
 -- =========================================
 -- CONSULTA 31

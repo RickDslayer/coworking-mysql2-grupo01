@@ -87,11 +87,31 @@ FROM
 -- =========================================
 
 
+SELECT usu.id_usuario, usu.nombre, usu.apellidos, COUNT(lm.id_membresia) AS total
+FROM log_membresia AS lm  
+LEFT JOIN membresia AS mem ON lm.id_membresia = mem.id_membresia
+LEFT JOIN usuario AS usu ON mem.id_usuario = usu.id_usuario
+GROUP BY usu.id_usuario
+HAVING COUNT(lm.id_membresia) > 2;
+
 -- =========================================
 -- CONSULTA 13
 -- Listar usuarios que han gastado más de $500 en reservas.
 -- =========================================
 
+SELECT	usu.id_usuario,
+		usu.nombre,
+		usu.apellidos,
+		COUNT(DISTINCT res.id_reserva) AS total_reservas,
+		SUM(df.monto)                AS total_gastado
+FROM usuario AS usu
+INNER JOIN reserva AS res          ON res.id_usuario  = usu.id_usuario
+INNER JOIN detalle_factura AS df ON df.id_reserva = res.id_reserva
+INNER JOIN factura AS fac          ON fac.id_factura  = df.id_factura
+WHERE fac.estado <> 'Anulada'        
+GROUP BY usu.id_usuario, usu.nombre, usu.apellidos
+HAVING SUM(df.monto) > 500
+ORDER BY total_gastado DESC;
 
 -- =========================================
 -- CONSULTA 14
@@ -99,11 +119,45 @@ FROM
 -- =========================================
 
 
+SELECT
+    usu.id_usuario,
+    usu.nombre,
+    usu.apellidos,
+    (SELECT COUNT(*)
+       FROM servicio_contratado AS sc
+      WHERE sc.id_usuario = usu.id_usuario
+        AND sc.estado = 'Activo') AS servicios_activos
+FROM usuario AS usu
+WHERE EXISTS (SELECT 1
+                FROM membresia AS mem
+               WHERE mem.id_usuario = usu.id_usuario
+                 AND mem.estado = 'Activa')
+  AND EXISTS (SELECT 1
+                FROM servicio_contratado AS sc
+               WHERE sc.id_usuario = usu.id_usuario
+                 AND sc.estado = 'Activo')
+ORDER BY usu.id_usuario;
+
 -- =========================================
 -- CONSULTA 15
 -- Listar usuarios con membresía Premium y reservas activas.
 -- =========================================
 
+SELECT
+    usu.id_usuario,
+    usu.nombre,
+    usu.apellidos,
+    mem.fecha_fin AS vence_membresia,
+    COUNT(DISTINCT res.id_reserva) AS reservas_activas
+FROM usuario AS usu
+INNER JOIN membresia AS mem       ON mem.id_usuario = usu.id_usuario
+INNER JOIN tipo_membresia AS tm ON tm.id_tipo   = mem.id_tipo
+INNER JOIN reserva AS res         ON res.id_usuario = usu.id_usuario
+WHERE tm.nombre = 'Premium'
+	AND mem.estado  = 'Activa'
+	AND res.estado IN ('Confirmada', 'Pendiente de Confirmacion')
+GROUP BY usu.id_usuario, usu.nombre, usu.apellidos, mem.fecha_fin
+ORDER BY reservas_activas DESC;
 
 -- =========================================
 -- CONSULTA 16

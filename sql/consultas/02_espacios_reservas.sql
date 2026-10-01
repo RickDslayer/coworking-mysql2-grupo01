@@ -256,11 +256,40 @@ ORDER BY res.fecha_inicio;
 -- Mostrar el porcentaje de ocupación por cada tipo de espacio.
 -- =========================================
 
+SELECT
+    te.nombre AS tipo_espacio,
+    ROUND(100 * COALESCE(r.horas_reservadas, 0)   / h.horas_disponibles, 2) AS porcentaje_ocupacion
+FROM tipo_espacio AS te
+INNER JOIN (
+    SELECT e.id_tipo_espacio,
+           SUM(TIME_TO_SEC(TIMEDIFF(he.hora_cierre, he.hora_apertura))) / 3600 * (30 / 7) AS horas_disponibles
+    FROM espacio AS e
+    INNER JOIN horario_espacio AS he ON he.id_espacio = e.id_espacio
+    GROUP BY e.id_tipo_espacio
+) AS h ON h.id_tipo_espacio = te.id_tipo_espacio
+LEFT JOIN (
+    SELECT e.id_tipo_espacio,
+           SUM(TIMESTAMPDIFF(MINUTE, r.fecha_inicio, r.fecha_fin)) / 60 AS horas_reservadas
+    FROM reserva AS r
+    INNER JOIN espacio AS e ON e.id_espacio = r.id_espacio
+    WHERE r.estado <> 'cancelada'
+      AND r.fecha_inicio >= CURDATE() - INTERVAL 30 DAY
+      AND r.fecha_inicio <  CURDATE() + INTERVAL 1 DAY
+    GROUP BY e.id_tipo_espacio
+) AS r ON r.id_tipo_espacio = te.id_tipo_espacio;
 
 -- =========================================
 -- CONSULTA 37
 -- Mostrar la duración promedio de reservas por tipo de espacio.
 -- =========================================
+
+SELECT
+    te.nombre AS tipo_espacio,
+    ROUND(AVG(TIMESTAMPDIFF(MINUTE, r.fecha_inicio, r.fecha_fin)) / 60, 2) AS horas_promedio
+FROM reserva AS r
+INNER JOIN espacio AS e ON e.id_espacio = r.id_espacio
+INNER JOIN tipo_espacio AS te ON te.id_tipo_espacio = e.id_tipo_espacio
+GROUP BY te.id_tipo_espacio, te.nombre;
 
 
 -- =========================================
@@ -268,14 +297,52 @@ ORDER BY res.fecha_inicio;
 -- Mostrar reservas con servicios adicionales incluidos.
 -- =========================================
 
+SELECT
+    r.id_reserva,
+    r.fecha_inicio,
+    r.fecha_fin,
+    s.nombre AS servicio,
+    sc.cantidad,
+    s.precio,
+    sc.cantidad * s.precio AS subtotal
+FROM reserva AS r
+INNER JOIN servicio_contratado AS sc ON sc.id_reserva = r.id_reserva
+INNER JOIN servicio AS s ON s.id_servicio = sc.id_servicio
+ORDER BY r.id_reserva;
 
 -- =========================================
 -- CONSULTA 39
 -- Listar usuarios que reservaron sala de eventos en los últimos 6 meses.
 -- =========================================
 
+SELECT DISTINCT
+    u.id_usuario,
+    u.nombre,
+    u.apellidos,
+    u.email
+FROM usuario AS u
+INNER JOIN reserva AS r ON r.id_usuario = u.id_usuario
+INNER JOIN espacio AS e ON e.id_espacio = r.id_espacio
+INNER JOIN tipo_espacio AS te ON te.id_tipo_espacio = e.id_tipo_espacio
+WHERE te.nombre = 'Sala de eventos'
+  AND r.fecha_inicio >= CURDATE() - INTERVAL 6 MONTH
+  AND r.fecha_inicio <= NOW();
 
 -- =========================================
 -- CONSULTA 40
 -- Identificar reservas realizadas y nunca asistidas.
 -- =========================================
+SELECT
+    r.id_reserva,
+    r.id_usuario,
+    r.id_espacio,
+    r.fecha_inicio,
+    r.fecha_fin,
+    r.estado
+FROM reserva AS r
+LEFT JOIN acceso AS a
+    ON a.id_reserva = r.id_reserva
+   AND a.resultado = 'Permitido'
+WHERE a.id_acceso IS NULL
+  AND r.estado <> 'Cancelada'
+  AND r.fecha_fin < NOW();

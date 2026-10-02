@@ -15,31 +15,46 @@ USE coworking_db;
 -- CONSULTA 01
 -- Listar todos los usuarios con su información básica.
 -- =========================================
-
+SELECT id_usuario, documento, nombre, apellidos, fecha_nacimiento,
+       email, telefono, fecha_registro
+FROM usuario;
 
 -- =========================================
 -- CONSULTA 02
 -- Listar los usuarios con membresía activa.
 -- =========================================
-
+SELECT u.id_usuario, u.nombre, u.apellidos, m.fecha_inicio, m.fecha_fin
+FROM usuario u
+JOIN membresia m ON u.id_usuario = m.id_usuario
+WHERE m.estado = 'Activa';
 
 -- =========================================
 -- CONSULTA 03
 -- Listar los usuarios cuya membresía está vencida.
 -- =========================================
-
+SELECT u.id_usuario, u.nombre, u.apellidos, m.fecha_inicio, m.fecha_fin
+FROM usuario u
+JOIN membresia m ON u.id_usuario = m.id_usuario
+WHERE m.estado = 'Vencida';
 
 -- =========================================
 -- CONSULTA 04
 -- Listar los usuarios con membresía suspendida.
 -- =========================================
-
+SELECT u.id_usuario, u.nombre, u.apellidos, m.fecha_inicio, m.fecha_fin
+FROM usuario u
+JOIN membresia m ON u.id_usuario = m.id_usuario
+WHERE m.estado = 'Suspendida';
 
 -- =========================================
 -- CONSULTA 05
 -- Contar cuántos usuarios tienen cada tipo de membresía.
 -- =========================================
-
+SELECT t.nombre AS tipo_membresia,
+       COUNT(DISTINCT m.id_usuario) AS cantidad_usuarios
+FROM tipo_membresia t
+LEFT JOIN membresia m ON t.id_tipo = m.id_tipo
+GROUP BY t.nombre;
 
 -- =========================================
 -- CONSULTA 06

@@ -12,9 +12,21 @@ Requisitos:
 Ejecutar previamente DDL y DML.
 */
 
+USE coworking_db;
+
 -- CONSULTA 81
 -- Mostrar los usuarios con el mayor gasto acumulado (subconsulta con SUM).
 -- =========================================
+
+SELECT u.id_usuario, u.nombre, u.apellidos,
+       (SELECT IFNULL(SUM(p.monto), 0)
+        FROM pago p
+        JOIN factura f ON p.id_factura = f.id_factura
+        WHERE f.id_usuario = u.id_usuario
+          AND p.estado = 'Pagado') AS gasto_total
+FROM usuario u
+ORDER BY gasto_total DESC
+LIMIT 10;
 
 
 -- =========================================
@@ -22,11 +34,36 @@ Ejecutar previamente DDL y DML.
 -- Mostrar los espacios más ocupados considerando reservas confirmadas y asistencias reales.
 -- =========================================
 
+SELECT e.id_espacio, e.nombre,
+       (SELECT COUNT(*)
+        FROM reserva r
+        WHERE r.id_espacio = e.id_espacio
+          AND r.estado = 'Confirmada') AS reservas_confirmadas,
+       (SELECT COUNT(*)
+        FROM acceso a
+        JOIN reserva r ON a.id_reserva = r.id_reserva
+        WHERE r.id_espacio = e.id_espacio
+          AND a.resultado = 'Permitido') AS asistencias_reales
+FROM espacio e
+ORDER BY (reservas_confirmadas + asistencias_reales) DESC
+LIMIT 10;
+
 
 -- =========================================
 -- CONSULTA 83
 -- Calcular el promedio de ingresos por usuario usando subconsultas.
 -- =========================================
+
+SELECT AVG(t.gasto) AS promedio_ingresos_por_usuario
+FROM (
+    SELECT u.id_usuario,
+           (SELECT IFNULL(SUM(p.monto), 0)
+            FROM pago p
+            JOIN factura f ON p.id_factura = f.id_factura
+            WHERE f.id_usuario = u.id_usuario
+              AND p.estado = 'Pagado') AS gasto
+    FROM usuario u
+) t;
 
 
 -- =========================================
@@ -34,11 +71,25 @@ Ejecutar previamente DDL y DML.
 -- Listar usuarios que tienen reservas activas y facturas pendientes.
 -- =========================================
 
+SELECT id_usuario, nombre, apellidos
+FROM usuario
+WHERE id_usuario IN (SELECT id_usuario FROM reserva WHERE estado = 'Confirmada')
+  AND id_usuario IN (SELECT id_usuario FROM factura WHERE estado = 'Pendiente');
+
 
 -- =========================================
 -- CONSULTA 85
 -- Mostrar empresas cuyos empleados generan más del 20% de los ingresos totales.
 -- =========================================
+
+SELECT e.id_empresa, e.nombre, SUM(p.monto) AS ingresos_empresa
+FROM pago p
+JOIN factura f ON p.id_factura = f.id_factura
+LEFT JOIN usuario u ON f.id_usuario = u.id_usuario
+JOIN empresa e ON e.id_empresa = IFNULL(f.id_empresa, u.id_empresa)
+WHERE p.estado = 'Pagado'
+GROUP BY e.id_empresa, e.nombre
+HAVING SUM(p.monto) > 0.20 * (SELECT SUM(monto) FROM pago WHERE estado = 'Pagado');
 
 
 -- =========================================

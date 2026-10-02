@@ -10,9 +10,17 @@ Requisitos:
 Ejecutar previamente DDL y DML.
 */
 
+USE coworking_db;
+
 -- CONSULTA 41
 -- Listar todos los pagos realizados con método tarjeta.
 -- =========================================
+
+SELECT p.id_pago, p.id_factura, mp.nombre AS metodo, p.monto, p.fecha_pago
+FROM pago p
+JOIN metodo_pago mp ON p.id_metodo = mp.id_metodo
+WHERE mp.nombre = 'Tarjeta'
+  AND p.estado = 'Pagado';
 
 
 -- =========================================
@@ -20,11 +28,23 @@ Ejecutar previamente DDL y DML.
 -- Listar pagos pendientes de usuarios.
 -- =========================================
 
+-- LEFT JOIN porque un pago puede no tener factura (o usuario) todavía.
+SELECT p.id_pago, p.monto, p.fecha_pago, u.nombre, u.apellidos
+FROM pago p
+LEFT JOIN factura f ON p.id_factura = f.id_factura
+LEFT JOIN usuario u ON f.id_usuario = u.id_usuario
+WHERE p.estado = 'Pendiente';
+
 
 -- =========================================
 -- CONSULTA 43
 -- Mostrar pagos cancelados en los últimos 3 meses.
 -- =========================================
+
+SELECT id_pago, id_factura, monto, fecha_pago, estado
+FROM pago
+WHERE estado = 'Cancelado'
+  AND fecha_pago >= DATE_SUB(CURDATE(), INTERVAL 3 MONTH);
 
 
 -- =========================================
@@ -32,11 +52,22 @@ Ejecutar previamente DDL y DML.
 -- Listar facturas generadas por membresías.
 -- =========================================
 
+-- DISTINCT para que la factura no salga repetida si tiene varias líneas.
+SELECT DISTINCT f.id_factura, f.fecha_emision, f.total, f.estado
+FROM factura f
+JOIN detalle_factura d ON f.id_factura = d.id_factura
+WHERE d.id_membresia IS NOT NULL;
+
 
 -- =========================================
 -- CONSULTA 45
 -- Listar facturas generadas por reservas.
 -- =========================================
+
+SELECT DISTINCT f.id_factura, f.fecha_emision, f.total, f.estado
+FROM factura f
+JOIN detalle_factura d ON f.id_factura = d.id_factura
+WHERE d.id_reserva IS NOT NULL;
 
 
 -- =========================================

@@ -10,10 +10,17 @@ Requisitos:
 Ejecutar previamente DDL y DML.
 */
 
+USE coworking_db;
+
 
 -- CONSULTA 21
 -- Listar todos los espacios disponibles con su capacidad.
 -- =========================================
+
+SELECT e.id_espacio, e.nombre, te.nombre AS tipo_espacio, e.capacidad_maxima
+FROM espacio e
+JOIN tipo_espacio te ON e.id_tipo_espacio = te.id_tipo_espacio
+WHERE e.estado = 'Disponible';
 
 
 -- =========================================
@@ -21,11 +28,30 @@ Ejecutar previamente DDL y DML.
 -- Listar reservas activas en el día actual.
 -- =========================================
 
+-- "Activa" = reserva Confirmada que empieza hoy.
+SELECT r.id_reserva, u.nombre, u.apellidos, e.nombre AS espacio,
+       r.fecha_inicio, r.fecha_fin
+FROM reserva r
+JOIN usuario u ON r.id_usuario = u.id_usuario
+JOIN espacio e ON r.id_espacio = e.id_espacio
+WHERE r.estado = 'Confirmada'
+  AND DATE(r.fecha_inicio) = CURDATE();
+
 
 -- =========================================
 -- CONSULTA 23
 -- Mostrar reservas canceladas en el último mes.
 -- =========================================
+
+-- La fecha en que se canceló está en log_reserva (estado_nuevo = 'Cancelada').
+SELECT r.id_reserva, u.nombre, u.apellidos, e.nombre AS espacio,
+       r.fecha_inicio, l.fecha AS fecha_cancelacion, l.motivo
+FROM reserva r
+JOIN log_reserva l ON r.id_reserva = l.id_reserva
+JOIN usuario u ON r.id_usuario = u.id_usuario
+JOIN espacio e ON r.id_espacio = e.id_espacio
+WHERE l.estado_nuevo = 'Cancelada'
+  AND l.fecha >= DATE_SUB(CURDATE(), INTERVAL 1 MONTH);
 
 
 -- =========================================
@@ -33,11 +59,28 @@ Ejecutar previamente DDL y DML.
 -- Listar reservas de salas de reuniones en horario pico (9 am – 11 am).
 -- =========================================
 
+-- Se toman las reservas que empiezan desde las 9:00 hasta antes de las 11:00.
+SELECT r.id_reserva, u.nombre, u.apellidos, e.nombre AS sala,
+       r.fecha_inicio, r.fecha_fin
+FROM reserva r
+JOIN usuario u ON r.id_usuario = u.id_usuario
+JOIN espacio e ON r.id_espacio = e.id_espacio
+JOIN tipo_espacio te ON e.id_tipo_espacio = te.id_tipo_espacio
+WHERE te.nombre = 'Sala de reuniones'
+  AND TIME(r.fecha_inicio) >= '09:00:00'
+  AND TIME(r.fecha_inicio) < '11:00:00';
+
 
 -- =========================================
 -- CONSULTA 25
 -- Contar cuántas reservas se hacen por cada tipo de espacio.
 -- =========================================
+
+SELECT te.nombre AS tipo_espacio, COUNT(r.id_reserva) AS total_reservas
+FROM tipo_espacio te
+LEFT JOIN espacio e ON te.id_tipo_espacio = e.id_tipo_espacio
+LEFT JOIN reserva r ON e.id_espacio = r.id_espacio
+GROUP BY te.nombre;
 
 
 -- =========================================

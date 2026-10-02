@@ -61,30 +61,67 @@ GROUP BY t.nombre;
 -- Mostrar el top 10 de usuarios con más antigüedad en el coworking.
 -- =========================================
 
+SELECT u.id_usuario,
+       CONCAT(u.nombre, ' ', u.apellidos) AS nombre_completo,
+       u.fecha_registro,
+       TIMESTAMPDIFF(MONTH, u.fecha_registro, @hoy) AS meses_antiguedad
+FROM USUARIO u
+ORDER BY u.fecha_registro ASC
+LIMIT 10;
 
 -- =========================================
 -- CONSULTA 07
 -- Listar usuarios que pertenecen a una empresa específica.
 -- =========================================
 
+SELECT u.id_usuario,
+       CONCAT(u.nombre, ' ', u.apellidos) AS nombre_completo,
+       u.email,
+       u.telefono
+FROM USUARIO u
+JOIN EMPRESA e ON e.id_empresa = u.id_empresa
+WHERE e.nombre = 'Andes Software SAS'
+ORDER BY u.apellidos;
 
 -- =========================================
 -- CONSULTA 08
 -- Contar cuántos usuarios están asociados a cada empresa.
 -- =========================================
 
+SELECT e.id_empresa,
+       e.nombre AS empresa,
+       COUNT(u.id_usuario) AS total_usuarios
+FROM EMPRESA e
+LEFT JOIN USUARIO u ON u.id_empresa = e.id_empresa
+GROUP BY e.id_empresa, e.nombre
+ORDER BY total_usuarios DESC;
 
 -- =========================================
 -- CONSULTA 09
 -- Mostrar usuarios que nunca han hecho una reserva.
 -- =========================================
 
+SELECT u.id_usuario,
+       CONCAT(u.nombre, ' ', u.apellidos) AS nombre_completo,
+       u.fecha_registro
+FROM USUARIO u
+WHERE NOT EXISTS (SELECT 1 FROM RESERVA r WHERE r.id_usuario = u.id_usuario);
 
 -- =========================================
 -- CONSULTA 10
 -- Mostrar usuarios con más de 5 reservas activas en el mes.
 -- =========================================
 
+SELECT u.id_usuario,
+       CONCAT(u.nombre, ' ', u.apellidos) AS nombre_completo,
+       COUNT(*) AS reservas_mes
+FROM USUARIO u
+JOIN RESERVA r ON r.id_usuario = u.id_usuario
+WHERE r.estado IN ('Pendiente de Confirmacion', 'Confirmada', 'Finalizada')
+  AND YEAR(r.fecha_inicio)  = YEAR(@hoy)
+  AND MONTH(r.fecha_inicio) = MONTH(@hoy)
+GROUP BY u.id_usuario, nombre_completo
+HAVING COUNT(*) > 5;
 
 -- =========================================
 -- CONSULTA 11
@@ -174,16 +211,41 @@ WHERE tm.nombre = 'Premium'
 GROUP BY usu.id_usuario, usu.nombre, usu.apellidos, mem.fecha_fin
 ORDER BY reservas_activas DESC;
 
--- =========================================
+- =========================================
 -- CONSULTA 16
 -- Mostrar usuarios con membresía Corporativa y su empresa.
 -- =========================================
-
+SELECT u.nombre AS nombre_empleado,
+u.apellidos AS apellid_empleado,
+e.nombre AS nombre_empresa,
+e.nit 
+FROM usuario AS u
+INNER JOIN empresa AS e
+ON e.id_empresa = u.id_empresa
+WHERE e.id_empresa;
 
 -- =========================================
 -- CONSULTA 17
 -- Identificar usuarios con membresía diaria que la han renovado más de 10 veces.
 -- =========================================
+
+SELECT
+    u.id_usuario,
+    u.nombre,
+    u.apellidos,
+    COUNT(m.id_membresia) AS total_renovaciones
+FROM membresia AS m
+INNER JOIN  usuario AS u
+    ON u.id_usuario = m.id_usuario
+INNER JOIN tipo_membresia AS tm
+    ON m.id_tipo = tm.id_tipo
+WHERE tm.nombre = 'Diaria'
+GROUP BY 
+    u.id_usuario,
+    u.nombre,
+    u.apellidos
+HAVING COUNT(m.id_membresia) > 10
+ORDER BY total_renovaciones DESC;
 
 
 -- =========================================
@@ -191,14 +253,39 @@ ORDER BY reservas_activas DESC;
 -- Mostrar usuarios cuya membresía vence en los próximos 7 días.
 -- =========================================
 
+SELECT
+    u.id_usuario,
+    u.nombre,
+    m.fecha_fin,
+    DATEDIFF(m.fecha_fin, CURDATE()) AS dias_restantes
+FROM membresia AS m
+INNER JOIN usuario AS u
+    ON u.id_usuario = m.id_usuario
+WHERE m.estado = 'activa'
+  AND m.fecha_fin BETWEEN CURDATE() AND DATE_ADD(CURDATE(), INTERVAL 7 DAY)
+ORDER BY m.fecha_fin;
 
 -- =========================================
 -- CONSULTA 19
 -- Listar usuarios que se registraron en el último mes.
 -- =========================================
 
+SELECT id_usuario, 
+nombre , 
+fecha_registro
+FROM usuario 
+WHERE YEAR(fecha_registro) = YEAR(NOW()) AND MONTH(fecha_registro) = MONTH(NOW()) -1 ;
+
 
 -- =========================================
 -- CONSULTA 20
 -- Mostrar usuarios que nunca han asistido al coworking (0 accesos).
 -- =========================================
+SELECT
+    u.id_usuario,
+    u.nombre,
+    u.apellidos
+FROM usuario AS u
+LEFT JOIN acceso AS a
+    ON a.id_usuario = u.id_usuario
+WHERE a.id_acceso IS NULL;

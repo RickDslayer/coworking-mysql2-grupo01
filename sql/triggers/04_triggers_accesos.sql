@@ -28,6 +28,25 @@ Ejecutar previamente DDL y DML.
 -- Actualizar última fecha de acceso del usuario al ingresar.
 -- =========================================
 
+DROP TRIGGER IF EXISTS trg_actualizar_ultimo_acceso;
+
+DELIMITER $$
+
+CREATE TRIGGER trg_actualizar_ultimo_acceso
+AFTER INSERT ON acceso
+FOR EACH ROW
+BEGIN
+    -- Solo actúa si la persona sí entró y se sabe quién es
+    IF NEW.resultado = 'Permitido' AND NEW.id_usuario IS NOT NULL THEN
+
+        UPDATE usuario AS usu
+           SET usu.ultimo_acceso = NEW.fecha_hora_entrada
+         WHERE usu.id_usuario = NEW.id_usuario;
+
+    END IF;
+END$$
+
+DELIMITER ;
 
 -- =========================================
 -- TRIGGER 21

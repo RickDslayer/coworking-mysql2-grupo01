@@ -28,6 +28,27 @@ Ejecutar previamente DDL y DML.
 -- Actualizar estado de membresía a “Suspendida” cuando no se paga antes de la fecha límite.
 -- =========================================
 
+DROP TRIGGER IF EXISTS trg_suspender_membresia_factura_vencida;
+
+DELIMITER $$
+
+CREATE TRIGGER trg_suspender_membresia_factura_vencida
+AFTER UPDATE ON factura
+FOR EACH ROW
+BEGIN
+
+    IF NEW.estado = 'Vencida' AND OLD.estado <> 'Vencida' THEN
+
+        UPDATE membresia AS mem
+        INNER JOIN detalle_factura AS det ON det.id_membresia = mem.id_membresia
+        SET mem.estado = 'Suspendida'
+        WHERE det.id_factura = NEW.id_factura
+          AND mem.estado = 'Activa';
+
+    END IF;
+END$$
+
+DELIMITER ;
 
 -- =========================================
 -- TRIGGER 04

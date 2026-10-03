@@ -27,6 +27,22 @@ USE coworking_db;
 -- CONSULTA 03
 -- Suspender membresías inactivas después de 30 días sin pago.
 -- =========================================
+
+DROP EVENT IF EXISTS evt_suspender_membresias_sin_pago;
+
+CREATE EVENT evt_suspender_membresias_sin_pago
+ON SCHEDULE EVERY 1 DAY
+DO
+    UPDATE membresia AS mem
+    SET mem.estado = 'Suspendida'
+    WHERE mem.estado = 'Activa'
+      AND EXISTS (SELECT 1
+                    FROM detalle_factura AS det
+                    INNER JOIN factura AS fac ON fac.id_factura = det.id_factura
+                   WHERE det.id_membresia = mem.id_membresia
+                     AND fac.estado IN ('Pendiente', 'Parcial', 'Vencida')
+                     AND DATEDIFF(CURDATE(), fac.fecha_emision) > 30);
+                     
 -- =========================================
 -- CONSULTA 04
 -- Generar reporte semanal de nuevas membresías al administrador.

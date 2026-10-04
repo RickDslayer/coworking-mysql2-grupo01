@@ -276,26 +276,85 @@ ORDER BY total_accesos DESC;
 -- Mostrar clientes que nunca han usado el coworking a pesar de pagar membresía.
 -- =========================================
 
+SELECT DISTINCT
+    u.id_usuario,
+    u.nombre,
+    u.apellidos
+FROM usuario AS u
+INNER JOIN membresia AS m ON m.id_usuario = u.id_usuario
+INNER JOIN detalle_factura AS df ON df.id_membresia = m.id_membresia
+INNER JOIN factura AS f ON f.id_factura = df.id_factura
+INNER JOIN pago AS p ON p.id_factura = f.id_factura
+                    AND p.estado = 'completado'
+WHERE NOT EXISTS (
+    SELECT 1
+    FROM acceso AS a
+    WHERE a.id_usuario = u.id_usuario
+      AND a.resultado = 'permitido'
+);
 
 -- =========================================
 -- CONSULTA 77
 -- Mostrar accesos rechazados por intentos con QR inválido.
 -- =========================================
 
+SELECT
+    a.id_acceso,
+    a.id_usuario,
+    a.codigo_leido,
+    a.fecha_hora_entrada AS fecha_intento,
+    a.motivo_rechazo
+FROM acceso AS a
+WHERE a.resultado = 'rechazado'
+  AND a.metodo = 'qr'
+  AND a.motivo_rechazo LIKE '%invalido%';
 
 -- =========================================
 -- CONSULTA 78
 -- Mostrar accesos promedio por usuario.
 -- =========================================
 
+SELECT
+    ROUND(COUNT(a.id_acceso) / COUNT(DISTINCT u.id_usuario), 2) AS accesos_promedio_por_usuario
+FROM usuario AS u
+LEFT JOIN acceso AS a
+    ON a.id_usuario = u.id_usuario
+   AND a.resultado = 'permitido';
 
 -- =========================================
 -- CONSULTA 79
 -- Identificar usuarios que asisten más en la mañana.
 -- =========================================
 
+SELECT
+    u.id_usuario,
+    u.nombre,
+    u.apellidos,
+    SUM(HOUR(a.fecha_hora_entrada) < 12) AS visitas_manana,
+    SUM(HOUR(a.fecha_hora_entrada) BETWEEN 12 AND 17) AS visitas_tarde,
+    SUM(HOUR(a.fecha_hora_entrada) >= 18) AS visitas_noche
+FROM usuario AS u
+INNER JOIN acceso AS a ON a.id_usuario = u.id_usuario
+WHERE a.resultado = 'permitido'
+GROUP BY u.id_usuario, u.nombre, u.apellidos
+HAVING visitas_manana > visitas_tarde
+   AND visitas_manana > visitas_noche;
 
 -- =========================================
 -- CONSULTA 80
 -- Identificar usuarios que asisten más en la noche.
 -- =========================================
+
+SELECT
+    u.id_usuario,
+    u.nombre,
+    u.apellidos,
+    SUM(HOUR(a.fecha_hora_entrada) < 12) AS visitas_manana,
+    SUM(HOUR(a.fecha_hora_entrada) BETWEEN 12 AND 17) AS visitas_tarde,
+    SUM(HOUR(a.fecha_hora_entrada) >= 18) AS visitas_noche
+FROM usuario AS u
+INNER JOIN acceso AS a ON a.id_usuario = u.id_usuario
+WHERE a.resultado = 'permitido'
+GROUP BY u.id_usuario, u.nombre, u.apellidos
+HAVING visitas_noche > visitas_manana
+   AND visitas_noche > visitas_tarde;

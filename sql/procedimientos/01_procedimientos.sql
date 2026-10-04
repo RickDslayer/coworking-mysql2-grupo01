@@ -23,6 +23,45 @@ USE coworking_db;
 -- Renovar una membresía existente -> Extiende la vigencia de una membresía según el tipo
 -- contratado.
 -- =========================================
+
+DELIMITER $$
+
+CREATE PROCEDURE sp_renovar_membresia(
+    IN  p_id_usuario        INT,
+    OUT p_id_membresia_nueva INT)
+BEGIN
+    DECLARE v_id_actual  INT;
+    DECLARE v_tipo       INT;
+    DECLARE v_fin        DATE;
+    DECLARE v_inicio     DATE;
+    DECLARE v_empresa    INT;
+    DECLARE v_nombre     VARCHAR(20);
+    DECLARE v_id_factura INT;
+
+    SET v_id_actual = (SELECT id_membresia FROM MEMBRESIA
+                       WHERE id_usuario = p_id_usuario
+                       ORDER BY fecha_inicio DESC, id_membresia DESC
+                       LIMIT 1);
+    IF v_id_actual IS NULL THEN
+        SIGNAL SQLSTATE '45000'
+            SET MESSAGE_TEXT = 'El usuario no tiene membresias para renovar. Use sp_registrar_membresia.';
+    END IF;
+
+    SET v_tipo   = (SELECT id_tipo   FROM MEMBRESIA WHERE id_membresia = v_id_actual);
+    SET v_fin    = (SELECT fecha_fin FROM MEMBRESIA WHERE id_membresia = v_id_actual);
+    SET v_inicio = GREATEST(v_fin, CURDATE());
+
+    INSERT INTO MEMBRESIA (id_usuario, id_tipo, estado, fecha_inicio)
+    VALUES (p_id_usuario, v_tipo, 'Pendiente', v_inicio);
+    SET p_id_membresia_nueva = LAST_INSERT_ID();
+
+    SET v_empresa = (SELECT id_empresa FROM USUARIO WHERE id_usuario = p_id_usuario);
+    SET v_nombre  = (SELECT nombre FROM TIPO_MEMBRESIA WHERE id_tipo = v_tipo);
+    IF NOT (v_empresa IS NOT NULL AND v_nombre = 'Corporativa') THEN
+        CALL sp_factura_membresia(p_id_membresia_nueva, v_id_factura);
+    END IF;
+END $$
+
 -- =========================================
 -- CONSULTA 03
 -- Actualizar estado de membresías vencidas -> Recorre las membresías y marca como
@@ -62,6 +101,52 @@ DELIMITER ;
 -- Crear una nueva reserva de espacio -> Inserta una reserva en estado "Pendiente" y la vincula
 -- a un usuario y espacio.
 -- =========================================
+
+DELIMITER $$
+
+CREATE PROCEDURE sp_crear_reserva(
+    IN  p_id_usuario     INT,
+    IN  p_id_espacio     INT,
+    IN  p_inicio         DATETIME,
+    IN  p_fin            DATETIME,
+    IN  p_num_asistentes INT,
+    OUT p_id_reserva     INT)
+BEGIN
+    DECLARE v_disponible BOOLEAN;
+    DECLARE v_motivo     VARCHAR(100);
+    DECLARE v_capacidad  INT;
+    DECLARE v_rol        VARCHAR(20);
+    DECLARE v_mi_usuario INT;
+
+    -- Un cliente solo puede reservar a su nombre
+    SET v_rol        = (SELECT rol        FROM CUENTA WHERE username = SUBSTRING_INDEX(USER(), '@', 1));
+    SET v_mi_usuario = (SELECT id_usuario FROM CUENTA WHERE username = SUBSTRING_INDEX(USER(), '@', 1));
+    IF v_rol = 'Usuario' AND NOT (v_mi_usuario <=> p_id_usuario) THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Solo puede crear reservas a su nombre';
+    END IF;
+
+    IF NOT EXISTS (SELECT 1 FROM MEMBRESIA
+                   WHERE id_usuario = p_id_usuario
+                     AND estado = 'Activa'
+                     AND CURDATE() BETWEEN fecha_inicio AND fecha_fin) THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'El usuario no tiene una membresia activa';
+    END IF;
+
+    SET v_capacidad = (SELECT capacidad_maxima FROM ESPACIO WHERE id_espacio = p_id_espacio);
+    IF COALESCE(p_num_asistentes, 1) > v_capacidad THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'El numero de asistentes supera la capacidad del espacio';
+    END IF;
+
+    CALL sp_verificar_disponibilidad(p_id_espacio, p_inicio, p_fin, v_disponible, v_motivo);
+    IF NOT v_disponible THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = v_motivo;
+    END IF;
+
+    INSERT INTO RESERVA (id_usuario, id_espacio, fecha_inicio, fecha_fin, num_asistentes)
+    VALUES (p_id_usuario, p_id_espacio, p_inicio, p_fin, COALESCE(p_num_asistentes, 1));
+    SET p_id_reserva = LAST_INSERT_ID();
+END $$
+
 -- =========================================
 -- CONSULTA 07
 -- Confirmar reserva con pago -> Cambia estado de reserva a "Confirmada" al registrar el
@@ -197,6 +282,78 @@ DELIMITER ;
 -- Generar factura consolidada para empresa -> Agrupa cargos de empleados corporativos en
 -- una sola factura.
 -- =========================================
+
+DELIMITER $$
+
+CREATE PROCEDURE sp_factura_consolidada(
+    IN  p_id_empresa INT,
+    IN  p_mes        INT,
+    IN  p_anio       INT,
+    OUT p_id_factura INT)
+BEGIN
+    DECLARE v_total DECIMAL(12,2);
+
+    IF NOT EXISTS (SELECT 1 FROM EMPRESA WHERE id_empresa = p_id_empresa) THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'La empresa no existe';
+    END IF;
+
+    DROP TEMPORARY TABLE IF EXISTS tmp_cargos;
+    CREATE TEMPORARY TABLE tmp_cargos (
+        id_membresia  INT NULL,
+        id_contratado INT NULL,
+        descripcion   VARCHAR(255),
+        monto         DECIMAL(12,2)
+    );
+
+    -- Membresías del mes sin facturar
+    INSERT INTO tmp_cargos (id_membresia, descripcion, monto)
+    SELECT m.id_membresia,
+           CONCAT('Membresia ', t.nombre, ' - ', u.nombre, ' ', SUBSTRING_INDEX(u.apellidos, ' ', 1)),
+           t.precio
+    FROM MEMBRESIA m
+    JOIN USUARIO u        ON u.id_usuario = m.id_usuario
+    JOIN TIPO_MEMBRESIA t ON t.id_tipo    = m.id_tipo
+    WHERE u.id_empresa = p_id_empresa
+      AND MONTH(m.fecha_inicio) = p_mes
+      AND YEAR(m.fecha_inicio)  = p_anio
+      AND NOT EXISTS (SELECT 1 FROM DETALLE_FACTURA d
+                      JOIN FACTURA f ON f.id_factura = d.id_factura
+                      WHERE d.id_membresia = m.id_membresia AND f.estado <> 'Anulada');
+
+    -- Servicios mensuales del mes sin facturar
+    INSERT INTO tmp_cargos (id_contratado, descripcion, monto)
+    SELECT sc.id_contratado,
+           CONCAT('Servicio ', s.nombre, ' - ', u.nombre),
+           s.precio * sc.cantidad
+    FROM SERVICIO_CONTRATADO sc
+    JOIN USUARIO u  ON u.id_usuario  = sc.id_usuario
+    JOIN SERVICIO s ON s.id_servicio = sc.id_servicio
+    WHERE u.id_empresa = p_id_empresa
+      AND sc.id_reserva IS NULL
+      AND sc.estado = 'Activo'
+      AND MONTH(sc.fecha) = p_mes
+      AND YEAR(sc.fecha)  = p_anio
+      AND NOT EXISTS (SELECT 1 FROM DETALLE_FACTURA d
+                      JOIN FACTURA f ON f.id_factura = d.id_factura
+                      WHERE d.id_contratado = sc.id_contratado AND f.estado <> 'Anulada');
+
+    SET v_total = (SELECT COALESCE(SUM(monto), 0) FROM tmp_cargos);
+    IF v_total = 0 THEN
+        DROP TEMPORARY TABLE IF EXISTS tmp_cargos;
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'La empresa no tiene cargos pendientes de facturar en ese mes';
+    END IF;
+
+    INSERT INTO FACTURA (id_empresa, fecha_emision, fecha_vencimiento, total, saldo_pendiente, estado)
+    VALUES (p_id_empresa, CURDATE(), CURDATE() + INTERVAL 10 DAY, v_total, v_total, 'Pendiente');
+    SET p_id_factura = LAST_INSERT_ID();
+
+    INSERT INTO DETALLE_FACTURA (id_factura, id_membresia, id_contratado, descripcion, monto)
+    SELECT p_id_factura, id_membresia, id_contratado, descripcion, monto
+    FROM tmp_cargos;
+
+    DROP TEMPORARY TABLE IF EXISTS tmp_cargos;
+END $$
+
 -- =========================================
 -- CONSULTA 12
 -- Aplicar recargos a facturas vencidas -> Incrementa el monto de facturas con más de X días
@@ -255,6 +412,41 @@ DELIMITER ;
 -- CONSULTA 15
 -- Registrar salida de usuario -> Completa la asistencia del usuario y marca hora de salida.
 -- =========================================
+
+DELIMITER $$
+
+CREATE PROCEDURE sp_registrar_salida(IN p_codigo VARCHAR(100))
+BEGIN
+    DECLARE v_usuario   INT;
+    DECLARE v_id_acceso INT;
+    DECLARE v_reserva   INT;
+
+    SET v_usuario = (SELECT id_usuario FROM CREDENCIAL WHERE codigo = p_codigo);
+    IF v_usuario IS NULL THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Credencial no encontrada';
+    END IF;
+
+    SET v_id_acceso = (SELECT id_acceso FROM ACCESO
+                       WHERE id_usuario = v_usuario
+                         AND resultado = 'Permitido'
+                         AND fecha_hora_salida IS NULL
+                       ORDER BY fecha_hora_entrada DESC
+                       LIMIT 1);
+    IF v_id_acceso IS NULL THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'El usuario no tiene un ingreso abierto';
+    END IF;
+
+    UPDATE ACCESO
+    SET fecha_hora_salida = GREATEST(NOW(), fecha_hora_entrada + INTERVAL 1 MINUTE)
+    WHERE id_acceso = v_id_acceso;
+
+    SET v_reserva = (SELECT id_reserva FROM ACCESO WHERE id_acceso = v_id_acceso);
+    IF v_reserva IS NOT NULL THEN
+        UPDATE RESERVA SET estado = 'Finalizada'
+        WHERE id_reserva = v_reserva AND estado = 'Confirmada';
+    END IF;
+END $$
+
 -- =========================================
 -- CONSULTA 16
 -- Generar reporte diario de asistencias -> Resume cantidad de ingresos, usuarios únicos y
@@ -355,6 +547,34 @@ DELIMITER ;
 -- Cancelar reservas futuras al eliminar membresía de usuario -> Recorre reservas
 -- pendientes/confirmadas y las cancela automáticamente.
 -- =========================================
+
+DELIMITER $$
+
+CREATE PROCEDURE sp_cancelar_reservas_futuras(IN p_id_usuario INT, OUT p_total INT)
+BEGIN
+    DECLARE v_fin     BOOLEAN DEFAULT FALSE;
+    DECLARE v_reserva INT;
+
+    DECLARE cur CURSOR FOR
+        SELECT id_reserva FROM RESERVA
+        WHERE id_usuario = p_id_usuario
+          AND estado IN ('Pendiente de Confirmacion', 'Confirmada')
+          AND fecha_inicio > NOW();
+    DECLARE CONTINUE HANDLER FOR NOT FOUND SET v_fin = TRUE;
+
+    SET p_total = 0;
+    OPEN cur;
+    leer: LOOP
+        FETCH cur INTO v_reserva;
+        IF v_fin THEN
+            LEAVE leer;
+        END IF;
+        CALL sp_cancelar_reserva(v_reserva, 100, 'Membresia eliminada');
+        SET p_total = p_total + 1;
+    END LOOP;
+    CLOSE cur;
+END $$
+
 -- =========================================
 -- CONSULTA 20
 -- Generar reporte de ingresos mensuales acumulados -> Calcula ingresos por mes e ingresos

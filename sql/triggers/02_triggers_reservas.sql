@@ -42,11 +42,43 @@ DELIMITER ;
 -- Cambiar estado a “Confirmada” al registrar el pago de la reserva.
 -- =========================================
 
+DELIMITER !
+
+CREATE TRIGGER trg_pago_confirma_reserva
+AFTER INSERT ON pago
+FOR EACH ROW
+BEGIN
+    IF NEW.estado = 'Pagado' THEN
+        UPDATE reserva AS r
+        INNER JOIN detalle_factura AS df ON df.id_reserva = r.id_reserva
+        SET r.estado = 'Confirmada'
+        WHERE df.id_factura = NEW.id_factura
+          AND r.estado = 'Pendiente de Confirmacion';
+    END IF;
+END!
+
+DELIMITER ;
 
 -- =========================================
 -- TRIGGER 09
 -- Cancelar reserva automáticamente si el usuario elimina su membresía.
 -- =========================================
+
+DELIMITER !
+
+CREATE TRIGGER trg_membresia_cambio_tipo
+AFTER UPDATE ON membresia
+FOR EACH ROW
+BEGIN
+    IF OLD.id_tipo <> NEW.id_tipo THEN
+        INSERT INTO log_membresia
+            (id_membresia, id_tipo_anterior, id_tipo_nuevo, fecha_cambio, usuario_bd)
+        VALUES
+            (NEW.id_membresia, OLD.id_tipo, NEW.id_tipo, NOW(), USER());
+    END IF;
+END!
+
+DELIMITER ;
 
 
 -- =========================================

@@ -24,7 +24,7 @@ Ejecutar previamente DDL, DML y funciones.
 
 DROP TRIGGER IF EXISTS trg_pago_au_actualizar_factura;
 
-DELIMITER $$
+DELIMITER !
 
 CREATE TRIGGER trg_pago_au_actualizar_factura
 AFTER UPDATE ON pago
@@ -50,7 +50,7 @@ BEGIN
         WHERE f.id_factura IN (NEW.id_factura, OLD.id_factura)
           AND f.estado <> 'Anulada';
     END IF;
-END $$
+END !
 
 DELIMITER ;
 
@@ -59,6 +59,19 @@ DELIMITER ;
 -- Bloquear eliminación de un pago si ya existe factura asociada.
 -- =========================================
 
+DELIMITER !
+
+CREATE TRIGGER trg_pago_bloquea_eliminacion
+BEFORE DELETE ON pago
+FOR EACH ROW
+BEGIN
+    IF EXISTS (SELECT 1 FROM factura WHERE id_factura = OLD.id_factura) THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'No se puede eliminar un pago asociado a una factura. Anulelo cambiando su estado a Cancelado.';
+    END IF;
+END!
+
+DELIMITER ;
 
 -- =========================================
 -- TRIGGER 14
@@ -112,3 +125,18 @@ DELIMITER ;
 -- Registrar en un log todos los pagos anulados.
 -- =========================================
 
+DELIMITER $$
+
+CREATE TRIGGER trg_pago_anulado_log
+AFTER UPDATE ON pago
+FOR EACH ROW
+BEGIN
+    IF NEW.estado = 'Cancelado' AND OLD.estado <> 'Cancelado' THEN
+        INSERT INTO log_pago_anulado
+            (id_pago, monto, motivo, fecha_anulacion)
+        VALUES
+            (NEW.id_pago, NEW.monto, 'Pago anulado', NOW());
+    END IF;
+END$$
+
+DELIMITER ;

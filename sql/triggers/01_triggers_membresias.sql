@@ -74,6 +74,21 @@ DELIMITER ;
 -- Registrar en un log cada vez que se actualice el tipo de membresía de un usuario.
 -- =========================================
 
+DELIMITER !
+
+CREATE TRIGGER trg_membresia_cambio_tipo
+AFTER UPDATE ON membresia
+FOR EACH ROW
+BEGIN
+    IF OLD.id_tipo <> NEW.id_tipo THEN
+        INSERT INTO log_membresia
+            (id_membresia, id_tipo_anterior, id_tipo_nuevo, fecha_cambio, usuario_bd)
+        VALUES
+            (NEW.id_membresia, OLD.id_tipo, NEW.id_tipo, NOW(), USER());
+    END IF;
+END!
+
+DELIMITER ;
 
 -- =========================================
 -- TRIGGER 05

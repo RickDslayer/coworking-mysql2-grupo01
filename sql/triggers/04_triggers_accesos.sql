@@ -132,7 +132,24 @@ DELIMITER ;
 -- =========================================
 
 
+
 -- =========================================
 -- TRIGGER 20
 -- Registrar en un log cada intento de acceso rechazado.
 -- =========================================
+
+DELIMITER !
+
+CREATE TRIGGER trg_acceso_rechazado_log
+AFTER INSERT ON acceso
+FOR EACH ROW
+BEGIN
+    IF NEW.resultado = 'Rechazado' THEN
+        INSERT INTO log_acceso_rechazado
+            (id_acceso, codigo_leido, motivo, fecha)
+        VALUES
+            (NEW.id_acceso, NEW.codigo_leido, NEW.motivo_rechazo, NEW.fecha_hora_entrada);
+    END IF;
+END!
+
+DELIMITER ;

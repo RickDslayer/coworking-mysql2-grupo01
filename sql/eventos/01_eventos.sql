@@ -81,6 +81,7 @@ DO
 -- EVENTO 04
 -- Generar reporte semanal de nuevas membresías al administrador.
 -- =========================================
+DELIMITER $$
 CREATE EVENT ev_reporte_semanal_membresias
 ON SCHEDULE EVERY 1 WEEK
 STARTS (TIMESTAMP(CURDATE()) + INTERVAL (7 - WEEKDAY(CURDATE())) DAY + INTERVAL 8 HOUR)
@@ -97,10 +98,13 @@ DO
            NOW(), FALSE, NULL
     FROM cuenta AS c
     WHERE c.rol = 'Administrador';
+    DELIMITER ;
 -- =========================================
 -- EVENTO 05
 -- Notificar membresías suspendidas cada día a recepción.
 -- =========================================
+DELIMITER ;
+
 CREATE EVENT ev_notificar_membresias_suspendidas
 ON SCHEDULE EVERY 1 DAY
 STARTS (TIMESTAMP(CURDATE()) + INTERVAL 1 DAY + INTERVAL 7 HOUR)
@@ -120,6 +124,9 @@ DO
     ) AS s
     WHERE c.rol = 'Recepcionista'
       AND s.lista IS NOT NULL;
+      DELIMITER ;
+
+
 
 -- Submódulo: Reservas (Eventos 06 a 10)
 -- =========================================
@@ -170,6 +177,7 @@ DELIMITER ;
 -- =========================================
 
 DROP EVENT IF EXISTS evt_eliminar_reservas_no_show;
+DELIMITER $$
 
 CREATE EVENT evt_eliminar_reservas_no_show
 ON SCHEDULE EVERY 1 DAY
@@ -182,7 +190,7 @@ DO
       AND NOT EXISTS (SELECT 1
                         FROM penalizacion AS pen
                        WHERE pen.id_reserva = res.id_reserva);
-
+DELIMITER ;
 -- =========================================
 -- EVENTO 09
 -- Generar reporte semanal de ocupación de espacios.
@@ -333,6 +341,8 @@ DELIMITER ;
 -- EVENTO 14
 -- Aplicar recargos automáticos a facturas vencidas después de 15 días.
 -- =========================================
+DELIMITER $$
+
 CREATE EVENT ev_recargo_facturas_vencidas
 ON SCHEDULE EVERY 1 DAY
 STARTS (TIMESTAMP(CURDATE()) + INTERVAL 1 DAY + INTERVAL 1 HOUR)
@@ -345,6 +355,7 @@ DO
       AND saldo_pendiente > 0
       AND recargo_aplicado = 0
       AND fecha_vencimiento < CURDATE() - INTERVAL 15 DAY;
+  DELIMITER ;
 -- =========================================
 -- EVENTO 15
 -- Enviar al contador un reporte de ingresos acumulados cada fin de mes.
@@ -435,6 +446,7 @@ DELIMITER ;
 -- =========================================
 
 DROP EVENT IF EXISTS evt_reporte_usuarios_inactivos;
+DELIMITER $$
 
 CREATE EVENT evt_reporte_usuarios_inactivos
 ON SCHEDULE EVERY 1 WEEK
@@ -455,11 +467,14 @@ DO
                                   WHERE acc.resultado = 'Permitido'
                                     AND acc.id_usuario IS NOT NULL
                                     AND acc.fecha_hora_entrada >= NOW() - INTERVAL 7 DAY);
-
+DELIMITER ;
 -- =========================================
 -- EVENTO 19
 -- Alertar accesos fuera de horario laboral cada día.
 -- =========================================
+
+DELIMITER $$
+
 CREATE EVENT ev_alerta_accesos_fuera_horario
 ON SCHEDULE EVERY 1 DAY
 STARTS (TIMESTAMP(CURDATE()) + INTERVAL 1 DAY + INTERVAL 6 HOUR)
@@ -482,6 +497,9 @@ DO
     ) AS a
     WHERE c.rol = 'Administrador'
       AND a.total > 0;
+
+DELIMITER ;
+
 -- =========================================
 -- EVENTO 20
 -- Enviar reporte de top 10 usuarios más frecuentes cada mes.

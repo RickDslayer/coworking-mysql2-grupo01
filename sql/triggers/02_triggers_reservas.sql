@@ -12,31 +12,42 @@ Ejecutar previamente DDL y DML.
 
 
 -- =========================================
--- TRIGGER 07
+-- TRIGGER 06
 -- Validar que no existan reservas duplicadas en el mismo espacio, fecha y hora.
 -- =========================================
 
 
 -- =========================================
--- TRIGGER 08
+-- TRIGGER 07
 -- Registrar automáticamente el estado “Pendiente de Confirmación” al crear una reserva.
 -- =========================================
 
+DELIMITER $$
+
+CREATE TRIGGER trg_reserva_bi_estado_inicial
+BEFORE INSERT ON RESERVA
+FOR EACH ROW
+FOLLOWS trg_reserva_bi_validar_duplicado
+BEGIN
+    SET NEW.estado               = 'Pendiente de Confirmacion',
+        NEW.fecha_creacion       = NOW(),
+        NEW.recordatorio_enviado = FALSE;
+END $$
 
 -- =========================================
--- TRIGGER 09
+-- TRIGGER 08
 -- Cambiar estado a “Confirmada” al registrar el pago de la reserva.
 -- =========================================
 
 
 -- =========================================
--- TRIGGER 10
+-- TRIGGER 09
 -- Cancelar reserva automáticamente si el usuario elimina su membresía.
 -- =========================================
 
 
 -- =========================================
--- TRIGGER 11
+-- TRIGGER 10
 -- Registrar en un log cada vez que una reserva es cancelada.
 -- =========================================
 
@@ -59,8 +70,4 @@ END$$
 
 DELIMITER ;
 
--- =========================================
--- TRIGGER 12
--- Registrar cambios relevantes de estado de las reservas en el sistema de auditoría.
--- =========================================
 

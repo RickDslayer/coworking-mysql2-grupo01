@@ -12,25 +12,25 @@ Ejecutar previamente DDL y DML.
 
 
 -- =========================================
--- TRIGGER 13
+-- TRIGGER 11
 -- Crear automáticamente una factura al registrar un pago.
 -- =========================================
 
 
 -- =========================================
--- TRIGGER 14
+-- TRIGGER 12
 -- Actualizar factura a “Pagada” cuando se confirma el pago.
 -- =========================================
 
 
 -- =========================================
--- TRIGGER 15
+-- TRIGGER 13
 -- Bloquear eliminación de un pago si ya existe factura asociada.
 -- =========================================
 
 
 -- =========================================
--- TRIGGER 16
+-- TRIGGER 14
 -- Actualizar saldo pendiente en facturas con pagos parciales.
 -- =========================================
 
@@ -77,7 +77,7 @@ END$$
 DELIMITER ;
 
 -- =========================================
--- TRIGGER 17
+-- TRIGGER 15
 -- Registrar en un log todos los pagos anulados.
 -- =========================================
 

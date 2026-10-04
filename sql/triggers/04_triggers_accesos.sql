@@ -12,19 +12,19 @@ Ejecutar previamente DDL y DML.
 
 
 -- =========================================
--- TRIGGER 18
+-- TRIGGER 16
 -- Registrar asistencia automáticamente al validar acceso con QR o tarjeta.
 -- =========================================
 
 
 -- =========================================
--- TRIGGER 19
+-- TRIGGER 17
 -- Bloquear acceso si el usuario no tiene membresía activa.
 -- =========================================
 
 
 -- =========================================
--- TRIGGER 20
+-- TRIGGER 18
 -- Actualizar última fecha de acceso del usuario al ingresar.
 -- =========================================
 
@@ -49,12 +49,12 @@ END$$
 DELIMITER ;
 
 -- =========================================
--- TRIGGER 21
+-- TRIGGER 19
 -- Registrar salida automáticamente si el usuario vuelve a entrar sin salida previa.
 -- =========================================
 
 
 -- =========================================
--- TRIGGER 22
+-- TRIGGER 20
 -- Registrar en un log cada intento de acceso rechazado.
 -- =========================================

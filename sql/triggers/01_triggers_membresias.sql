@@ -22,6 +22,21 @@ Ejecutar previamente DDL y DML.
 -- Actualizar estado de membresía a “Activa” cuando se realiza un pago exitoso.
 -- =========================================
 
+DELIMITER $$
+
+CREATE TRIGGER trg_factura_au_activar_membresia
+AFTER UPDATE ON FACTURA
+FOR EACH ROW
+BEGIN
+    IF NEW.estado = 'Pagada' AND OLD.estado <> 'Pagada' THEN
+        UPDATE MEMBRESIA m
+        JOIN DETALLE_FACTURA d ON d.id_membresia = m.id_membresia
+        SET m.estado = 'Activa'
+        WHERE d.id_factura = NEW.id_factura
+          AND m.estado IN ('Pendiente', 'Suspendida')
+          AND m.fecha_fin >= CURDATE();
+    END IF;
+END $$
 
 -- =========================================
 -- TRIGGER 03
@@ -62,8 +77,5 @@ DELIMITER ;
 -- =========================================
 
 
--- =========================================
--- TRIGGER 06
--- Registrar cambios relevantes relacionados con la membresía en el sistema de auditoría.
--- =========================================
+
 

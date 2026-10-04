@@ -27,16 +27,16 @@ DROP TRIGGER IF EXISTS trg_pago_au_actualizar_factura;
 DELIMITER $$
 
 CREATE TRIGGER trg_pago_au_actualizar_factura
-AFTER UPDATE ON PAGO
+AFTER UPDATE ON pago
 FOR EACH ROW
 BEGIN
     IF OLD.estado <> NEW.estado
        OR OLD.monto <> NEW.monto
        OR NOT (OLD.id_factura <=> NEW.id_factura) THEN
 
-        UPDATE FACTURA f
+        UPDATE factura f
         LEFT JOIN (SELECT id_factura, SUM(monto) AS pagado
-                   FROM PAGO
+                   FROM pago
                    WHERE estado = 'Pagado'
                    GROUP BY id_factura) p ON p.id_factura = f.id_factura
         SET f.estado = CASE

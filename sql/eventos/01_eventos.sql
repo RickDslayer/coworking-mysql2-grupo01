@@ -4,9 +4,7 @@ Grupo: 01
 Módulo: Eventos SQL
 Archivo: 01_eventos.sql
 Descripción:
-Implementación de los 20 Eventos SQL del proyecto. Se crean
-desactivados (DISABLE) para no modificar los datos de prueba; se
-activan con SET GLOBAL event_scheduler = ON y ALTER EVENT ... ENABLE.
+Implementación de los 20 Eventos SQL del proyecto.
 Requisitos:
 Ejecutar previamente DDL, DML, funciones, triggers y procedimientos.
 */
@@ -36,7 +34,7 @@ DISABLE  -- se deja desactivado por defecto; activar según necesidad
 COMMENT 'Diario 08:00 - aviso a clientes cuya membresia vence en 5 dias'
 DO
 BEGIN
-    INSERT INTO NOTIFICACION (id_usuario, destinatario_rol, tipo, asunto, mensaje, fecha_programada)
+    INSERT INTO notificacion (id_usuario, destinatario_rol, tipo, asunto, mensaje, fecha_programada)
     SELECT m.id_usuario,
            'Usuario',
            'Recordatorio',
@@ -45,13 +43,13 @@ BEGIN
                   DATE_FORMAT(m.fecha_fin, '%d/%m/%Y'),
                   '. Renuevala para no perder el acceso.'),
            NOW()
-    FROM MEMBRESIA m
-    JOIN USUARIO u        ON u.id_usuario = m.id_usuario
-    JOIN TIPO_MEMBRESIA t ON t.id_tipo    = m.id_tipo
+    FROM membresia m
+    JOIN usuario u        ON u.id_usuario = m.id_usuario
+    JOIN tipo_membresia t ON t.id_tipo    = m.id_tipo
     WHERE m.estado = 'Activa'
       AND m.fecha_fin = CURDATE() + INTERVAL 5 DAY
       -- no avisar si ya renovó (tiene otra membresía que empieza después)
-      AND NOT EXISTS (SELECT 1 FROM MEMBRESIA m2
+      AND NOT EXISTS (SELECT 1 FROM membresia m2
                       WHERE m2.id_usuario = m.id_usuario
                         AND m2.fecha_inicio >= m.fecha_fin);
 END $$
@@ -107,7 +105,7 @@ DISABLE -- se deja desactivado por defecto; activar según necesidad
 COMMENT 'Cada 5 min - recordatorio de reservas que empiezan en la proxima hora'
 DO
 BEGIN
-    INSERT INTO NOTIFICACION (id_usuario, destinatario_rol, tipo, asunto, mensaje, fecha_programada)
+    INSERT INTO notificacion (id_usuario, destinatario_rol, tipo, asunto, mensaje, fecha_programada)
     SELECT r.id_usuario,
            'Usuario',
            'Recordatorio',
@@ -115,13 +113,13 @@ BEGIN
            CONCAT('Tu reserva en ', e.nombre, ' empieza a las ',
                   DATE_FORMAT(r.fecha_inicio, '%H:%i'), '.'),
            NOW()
-    FROM RESERVA r
-    JOIN ESPACIO e ON e.id_espacio = r.id_espacio
+    FROM reserva r
+    JOIN espacio e ON e.id_espacio = r.id_espacio
     WHERE r.estado = 'Confirmada'
       AND r.recordatorio_enviado = FALSE
       AND r.fecha_inicio BETWEEN NOW() AND NOW() + INTERVAL 1 HOUR;
 
-    UPDATE RESERVA
+    UPDATE reserva
     SET recordatorio_enviado = TRUE
     WHERE estado = 'Confirmada'
       AND recordatorio_enviado = FALSE
@@ -180,7 +178,7 @@ DO
 BEGIN
     DECLARE v_total INT;
 
-    UPDATE FACTURA
+    UPDATE factura
     SET estado = 'Vencida'
     WHERE estado IN ('Pendiente', 'Parcial')
       AND saldo_pendiente > 0
@@ -333,7 +331,7 @@ DISABLE  -- se deja desactivado por defecto; activar según necesidad
 COMMENT 'Diario 06:30 - ingresos, usuarios unicos y hora pico del dia anterior'
 DO
 BEGIN
-    -- El procedimiento guarda el resumen en NOTIFICACION para el administrador
+    -- El procedimiento guarda el resumen en notificacion para el administrador
     CALL sp_reporte_asistencias_diario(CURDATE() - INTERVAL 1 DAY);
 END $$
 
@@ -399,16 +397,16 @@ BEGIN
                      FROM (SELECT ROW_NUMBER() OVER (ORDER BY COUNT(*) DESC, a.id_usuario) AS posicion,
                                   CONCAT(u.nombre, ' ', u.apellidos)                      AS nombre,
                                   COUNT(*)                                                AS asistencias
-                           FROM ACCESO a
-                           JOIN USUARIO u ON u.id_usuario = a.id_usuario
+                           FROM acceso a
+                           JOIN usuario u ON u.id_usuario = a.id_usuario
                            WHERE a.resultado = 'Permitido'
                              AND DATE(a.fecha_hora_entrada) BETWEEN v_ini AND v_fin
                            GROUP BY a.id_usuario, u.nombre, u.apellidos
                            ORDER BY asistencias DESC, a.id_usuario
                            LIMIT 10) t);
 
-    INSERT INTO NOTIFICACION (id_cuenta, destinatario_rol, tipo, asunto, mensaje, fecha_programada)
-    VALUES ((SELECT id_cuenta FROM CUENTA WHERE rol = 'Administrador' ORDER BY id_cuenta LIMIT 1),
+    INSERT INTO notificacion (id_cuenta, destinatario_rol, tipo, asunto, mensaje, fecha_programada)
+    VALUES ((SELECT id_cuenta FROM cuenta WHERE rol = 'Administrador' ORDER BY id_cuenta LIMIT 1),
             'Administrador', 'Reporte', 'Top 10 usuarios mas frecuentes',
             CONCAT('Asistencias de ', DATE_FORMAT(v_ini, '%m/%Y'), ': ',
                    COALESCE(v_detalle, 'sin asistencias registradas'), '.'),

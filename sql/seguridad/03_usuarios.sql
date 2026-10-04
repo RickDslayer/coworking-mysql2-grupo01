@@ -5,7 +5,7 @@ Módulo: Control de Acceso / Roles
 Archivo: 03_usuarios.sql
 Descripción:
 Usuarios MySQL de ejemplo para cada uno de los 5 roles.
-El nombre de cada usuario es el mismo de su registro en CUENTA (así las
+El nombre de cada usuario es el mismo de su registro en cuenta (así las
 vistas de 02_permisos.sql saben quién está conectado) y la contraseña
 es la que tiene en dml.sql.
 Requisitos:
@@ -78,7 +78,7 @@ FLUSH PRIVILEGES;
 -- Probar como cliente:
 --   mysql -u miguel.ramirez1 -p coworking_db
 --   SELECT * FROM v_mis_reservas;          -- solo ve sus reservas
---   SELECT * FROM RESERVA;                 -- error: sin permiso sobre la tabla
+--   SELECT * FROM reserva;                 -- error: sin permiso sobre la tabla
 --
 -- Probar como gerente:
 --   mysql -u carlos.munoz2 -p coworking_db
@@ -86,7 +86,7 @@ FLUSH PRIVILEGES;
 --   SELECT * FROM v_facturas_empresa;      -- facturas consolidadas + individuales
 --
 -- Crear un usuario nuevo y asignarle un rol:
---   1. Registrar su CUENTA con el mismo username (rol correspondiente).
+--   1. Registrar su cuenta con el mismo username (rol correspondiente).
 --   2. CREATE USER 'nuevo.usuario'@'localhost' IDENTIFIED BY 'Clave123*';
 --   3. GRANT 'rol_usuario' TO 'nuevo.usuario'@'localhost';
 --   4. SET DEFAULT ROLE 'rol_usuario' TO 'nuevo.usuario'@'localhost';

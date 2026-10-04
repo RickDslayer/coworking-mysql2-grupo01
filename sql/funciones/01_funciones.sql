@@ -36,7 +36,7 @@ BEGIN
     DECLARE v_fecha_fin DATE;
 
     SELECT MAX(fecha_fin) INTO v_fecha_fin
-    FROM MEMBRESIA
+    FROM membresia
     WHERE id_usuario = p_usuario_id
       AND estado = 'Activa';
 
@@ -108,7 +108,7 @@ BEGIN
 
     SELECT COALESCE(SUM(TIMESTAMPDIFF(MINUTE, fecha_inicio, fecha_fin)) / 60, 0)
       INTO v_horas
-    FROM RESERVA
+    FROM reserva
     WHERE id_usuario = p_usuario_id
       AND MONTH(fecha_inicio) = p_mes
       AND YEAR(fecha_inicio)  = p_anio
@@ -200,7 +200,7 @@ BEGIN
     DECLARE v_total DECIMAL(12,2);
 
     SELECT COALESCE(SUM(monto), 0) INTO v_total
-    FROM PAGO
+    FROM pago
     WHERE estado = 'Pagado'
       AND MONTH(fecha_pago) = p_mes
       AND YEAR(fecha_pago)  = p_anio;
@@ -258,9 +258,9 @@ BEGIN
     DECLARE v_total DECIMAL(12,2);
 
     SELECT COALESCE(SUM(p.monto), 0) INTO v_total
-    FROM PAGO p
-    JOIN FACTURA f      ON f.id_factura = p.id_factura
-    LEFT JOIN USUARIO u ON u.id_usuario = f.id_usuario
+    FROM pago p
+    JOIN factura f      ON f.id_factura = p.id_factura
+    LEFT JOIN usuario u ON u.id_usuario = f.id_usuario
     WHERE p.estado = 'Pagado'
       AND (f.id_empresa = p_empresa_id OR u.id_empresa = p_empresa_id);
 
@@ -290,7 +290,7 @@ BEGIN
     DECLARE v_total INT;
 
     SELECT COUNT(*) INTO v_total
-    FROM ACCESO
+    FROM acceso
     WHERE id_usuario = p_usuario_id
       AND resultado = 'Permitido'
       AND MONTH(fecha_hora_entrada) = p_mes

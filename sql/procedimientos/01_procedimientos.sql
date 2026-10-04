@@ -41,7 +41,7 @@ BEGIN
     DECLARE v_nombre     VARCHAR(20);
     DECLARE v_id_factura INT;
 
-    SET v_id_actual = (SELECT id_membresia FROM MEMBRESIA
+    SET v_id_actual = (SELECT id_membresia FROM membresia
                        WHERE id_usuario = p_id_usuario
                        ORDER BY fecha_inicio DESC, id_membresia DESC
                        LIMIT 1);
@@ -50,16 +50,16 @@ BEGIN
             SET MESSAGE_TEXT = 'El usuario no tiene membresias para renovar. Use sp_registrar_membresia.';
     END IF;
 
-    SET v_tipo   = (SELECT id_tipo   FROM MEMBRESIA WHERE id_membresia = v_id_actual);
-    SET v_fin    = (SELECT fecha_fin FROM MEMBRESIA WHERE id_membresia = v_id_actual);
+    SET v_tipo   = (SELECT id_tipo   FROM membresia WHERE id_membresia = v_id_actual);
+    SET v_fin    = (SELECT fecha_fin FROM membresia WHERE id_membresia = v_id_actual);
     SET v_inicio = GREATEST(v_fin, CURDATE());
 
-    INSERT INTO MEMBRESIA (id_usuario, id_tipo, estado, fecha_inicio)
+    INSERT INTO membresia (id_usuario, id_tipo, estado, fecha_inicio)
     VALUES (p_id_usuario, v_tipo, 'Pendiente', v_inicio);
     SET p_id_membresia_nueva = LAST_INSERT_ID();
 
-    SET v_empresa = (SELECT id_empresa FROM USUARIO WHERE id_usuario = p_id_usuario);
-    SET v_nombre  = (SELECT nombre FROM TIPO_MEMBRESIA WHERE id_tipo = v_tipo);
+    SET v_empresa = (SELECT id_empresa FROM usuario WHERE id_usuario = p_id_usuario);
+    SET v_nombre  = (SELECT nombre FROM tipo_membresia WHERE id_tipo = v_tipo);
     IF NOT (v_empresa IS NOT NULL AND v_nombre = 'Corporativa') THEN
         CALL sp_factura_membresia(p_id_membresia_nueva, v_id_factura);
     END IF;
@@ -126,20 +126,20 @@ BEGIN
     DECLARE v_mi_usuario INT;
 
     -- Un cliente solo puede reservar a su nombre
-    SET v_rol        = (SELECT rol        FROM CUENTA WHERE username = SUBSTRING_INDEX(USER(), '@', 1));
-    SET v_mi_usuario = (SELECT id_usuario FROM CUENTA WHERE username = SUBSTRING_INDEX(USER(), '@', 1));
+    SET v_rol        = (SELECT rol        FROM cuenta WHERE username = SUBSTRING_INDEX(USER(), '@', 1));
+    SET v_mi_usuario = (SELECT id_usuario FROM cuenta WHERE username = SUBSTRING_INDEX(USER(), '@', 1));
     IF v_rol = 'Usuario' AND NOT (v_mi_usuario <=> p_id_usuario) THEN
         SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Solo puede crear reservas a su nombre';
     END IF;
 
-    IF NOT EXISTS (SELECT 1 FROM MEMBRESIA
+    IF NOT EXISTS (SELECT 1 FROM membresia
                    WHERE id_usuario = p_id_usuario
                      AND estado = 'Activa'
                      AND CURDATE() BETWEEN fecha_inicio AND fecha_fin) THEN
         SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'El usuario no tiene una membresia activa';
     END IF;
 
-    SET v_capacidad = (SELECT capacidad_maxima FROM ESPACIO WHERE id_espacio = p_id_espacio);
+    SET v_capacidad = (SELECT capacidad_maxima FROM espacio WHERE id_espacio = p_id_espacio);
     IF COALESCE(p_num_asistentes, 1) > v_capacidad THEN
         SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'El numero de asistentes supera la capacidad del espacio';
     END IF;
@@ -149,7 +149,7 @@ BEGIN
         SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = v_motivo;
     END IF;
 
-    INSERT INTO RESERVA (id_usuario, id_espacio, fecha_inicio, fecha_fin, num_asistentes)
+    INSERT INTO reserva (id_usuario, id_espacio, fecha_inicio, fecha_fin, num_asistentes)
     VALUES (p_id_usuario, p_id_espacio, p_inicio, p_fin, COALESCE(p_num_asistentes, 1));
     SET p_id_reserva = LAST_INSERT_ID();
 END $$
@@ -304,7 +304,7 @@ CREATE PROCEDURE sp_factura_consolidada(
 BEGIN
     DECLARE v_total DECIMAL(12,2);
 
-    IF NOT EXISTS (SELECT 1 FROM EMPRESA WHERE id_empresa = p_id_empresa) THEN
+    IF NOT EXISTS (SELECT 1 FROM empresa WHERE id_empresa = p_id_empresa) THEN
         SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'La empresa no existe';
     END IF;
 
@@ -321,14 +321,14 @@ BEGIN
     SELECT m.id_membresia,
            CONCAT('Membresia ', t.nombre, ' - ', u.nombre, ' ', SUBSTRING_INDEX(u.apellidos, ' ', 1)),
            t.precio
-    FROM MEMBRESIA m
-    JOIN USUARIO u        ON u.id_usuario = m.id_usuario
-    JOIN TIPO_MEMBRESIA t ON t.id_tipo    = m.id_tipo
+    FROM membresia m
+    JOIN usuario u        ON u.id_usuario = m.id_usuario
+    JOIN tipo_membresia t ON t.id_tipo    = m.id_tipo
     WHERE u.id_empresa = p_id_empresa
       AND MONTH(m.fecha_inicio) = p_mes
       AND YEAR(m.fecha_inicio)  = p_anio
-      AND NOT EXISTS (SELECT 1 FROM DETALLE_FACTURA d
-                      JOIN FACTURA f ON f.id_factura = d.id_factura
+      AND NOT EXISTS (SELECT 1 FROM detalle_factura d
+                      JOIN factura f ON f.id_factura = d.id_factura
                       WHERE d.id_membresia = m.id_membresia AND f.estado <> 'Anulada');
 
     -- Servicios mensuales del mes sin facturar
@@ -336,16 +336,16 @@ BEGIN
     SELECT sc.id_contratado,
            CONCAT('Servicio ', s.nombre, ' - ', u.nombre),
            s.precio * sc.cantidad
-    FROM SERVICIO_CONTRATADO sc
-    JOIN USUARIO u  ON u.id_usuario  = sc.id_usuario
-    JOIN SERVICIO s ON s.id_servicio = sc.id_servicio
+    FROM servicio_contratado sc
+    JOIN usuario u  ON u.id_usuario  = sc.id_usuario
+    JOIN servicio s ON s.id_servicio = sc.id_servicio
     WHERE u.id_empresa = p_id_empresa
       AND sc.id_reserva IS NULL
       AND sc.estado = 'Activo'
       AND MONTH(sc.fecha) = p_mes
       AND YEAR(sc.fecha)  = p_anio
-      AND NOT EXISTS (SELECT 1 FROM DETALLE_FACTURA d
-                      JOIN FACTURA f ON f.id_factura = d.id_factura
+      AND NOT EXISTS (SELECT 1 FROM detalle_factura d
+                      JOIN factura f ON f.id_factura = d.id_factura
                       WHERE d.id_contratado = sc.id_contratado AND f.estado <> 'Anulada');
 
     SET v_total = (SELECT COALESCE(SUM(monto), 0) FROM tmp_cargos);
@@ -354,11 +354,11 @@ BEGIN
         SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'La empresa no tiene cargos pendientes de facturar en ese mes';
     END IF;
 
-    INSERT INTO FACTURA (id_empresa, fecha_emision, fecha_vencimiento, total, saldo_pendiente, estado)
+    INSERT INTO factura (id_empresa, fecha_emision, fecha_vencimiento, total, saldo_pendiente, estado)
     VALUES (p_id_empresa, CURDATE(), CURDATE() + INTERVAL 10 DAY, v_total, v_total, 'Pendiente');
     SET p_id_factura = LAST_INSERT_ID();
 
-    INSERT INTO DETALLE_FACTURA (id_factura, id_membresia, id_contratado, descripcion, monto)
+    INSERT INTO detalle_factura (id_factura, id_membresia, id_contratado, descripcion, monto)
     SELECT p_id_factura, id_membresia, id_contratado, descripcion, monto
     FROM tmp_cargos;
 
@@ -436,12 +436,12 @@ BEGIN
     DECLARE v_id_acceso INT;
     DECLARE v_reserva   INT;
 
-    SET v_usuario = (SELECT id_usuario FROM CREDENCIAL WHERE codigo = p_codigo);
+    SET v_usuario = (SELECT id_usuario FROM credencial WHERE codigo = p_codigo);
     IF v_usuario IS NULL THEN
         SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Credencial no encontrada';
     END IF;
 
-    SET v_id_acceso = (SELECT id_acceso FROM ACCESO
+    SET v_id_acceso = (SELECT id_acceso FROM acceso
                        WHERE id_usuario = v_usuario
                          AND resultado = 'Permitido'
                          AND fecha_hora_salida IS NULL
@@ -451,13 +451,13 @@ BEGIN
         SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'El usuario no tiene un ingreso abierto';
     END IF;
 
-    UPDATE ACCESO
+    UPDATE acceso
     SET fecha_hora_salida = GREATEST(NOW(), fecha_hora_entrada + INTERVAL 1 MINUTE)
     WHERE id_acceso = v_id_acceso;
 
-    SET v_reserva = (SELECT id_reserva FROM ACCESO WHERE id_acceso = v_id_acceso);
+    SET v_reserva = (SELECT id_reserva FROM acceso WHERE id_acceso = v_id_acceso);
     IF v_reserva IS NOT NULL THEN
-        UPDATE RESERVA SET estado = 'Finalizada'
+        UPDATE reserva SET estado = 'Finalizada'
         WHERE id_reserva = v_reserva AND estado = 'Confirmada';
     END IF;
 END $$
@@ -575,7 +575,7 @@ BEGIN
     DECLARE v_reserva INT;
 
     DECLARE cur CURSOR FOR
-        SELECT id_reserva FROM RESERVA
+        SELECT id_reserva FROM reserva
         WHERE id_usuario = p_id_usuario
           AND estado IN ('Pendiente de Confirmacion', 'Confirmada')
           AND fecha_inicio > NOW();

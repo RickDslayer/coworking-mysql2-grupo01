@@ -27,7 +27,7 @@ DROP TRIGGER IF EXISTS trg_reserva_bi_estado_inicial;
 DELIMITER $$
 
 CREATE TRIGGER trg_reserva_bi_estado_inicial
-BEFORE INSERT ON RESERVA
+BEFORE INSERT ON reserva
 FOR EACH ROW
 BEGIN
     SET NEW.estado               = 'Pendiente de Confirmacion',

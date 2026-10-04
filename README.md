@@ -2,7 +2,7 @@
 
 Base de datos en **MySQL 8** para administrar la operación completa de un espacio de coworking: clientes y empresas, membresías, reservas de espacios, servicios adicionales, facturación y pagos, control de acceso con tarjeta RFID o código QR, notificaciones automáticas y seguridad por roles.
 
-> Proyecto ID 1791 · Grupo 01 · Campuslands
+> Grupo 01 · Campuslands
 
 ---
 
@@ -57,7 +57,6 @@ Consideraciones:
 
 - **Usuario administrador:** los scripts deben ejecutarse con un usuario con privilegios de administración (por ejemplo `root`), porque crean la base de datos, rutinas, eventos, roles y usuarios.
 - **Codificación UTF-8:** los archivos están en UTF-8 (tildes, eñes y alias como `AÑO`). Desde la terminal hay que usar `--default-character-set=utf8mb4`. Workbench ya trabaja en UTF-8.
-- **Mayúsculas en nombres de tablas:** las tablas se crean en minúsculas (`usuario`, `factura`…), pero algunos scripts las escriben en mayúsculas (`USUARIO`, `FACTURA`…). En **Windows** (donde se desarrolló el proyecto) y en macOS esto no importa. En **Linux**, MySQL distingue mayúsculas en los nombres de tabla, así que hay que configurar `lower_case_table_names=1` **antes de inicializar** el servidor.
 
 ---
 
@@ -124,7 +123,7 @@ El orden importa: cada archivo usa objetos creados por los anteriores.
 | 6 | `sql/triggers/03_triggers_pagos_facturacion.sql` | Triggers del módulo Pagos y Facturación. |
 | 7 | `sql/triggers/04_triggers_accesos.sql` | Triggers del módulo Accesos. |
 | 8 | `sql/procedimientos/01_procedimientos.sql` | Crea los 20 procedimientos (se apoyan en los triggers). |
-| 9 | `sql/eventos/01_eventos.sql` | Crea los 20 eventos (ver [eventos desactivados](#4-eventos-desactivados)). |
+| 9 | `sql/eventos/01_eventos.sql` | Crea los 20 eventos. |
 | 10 | `sql/seguridad/01_roles.sql` | Crea los 5 roles. |
 | 11 | `sql/seguridad/02_permisos.sql` | Asigna permisos. Necesita que ya existan las funciones y los procedimientos. |
 | 12 | `sql/seguridad/03_usuarios.sql` | Crea los usuarios MySQL de ejemplo y les asigna su rol. |
@@ -166,20 +165,7 @@ mysql -u root -p --default-character-set=utf8mb4 coworking_db < sql/consultas/05
 
 O abrir el archivo en Workbench y ejecutar cada consulta por separado (Ctrl + Enter sobre la consulta).
 
-> **Fecha de referencia:** los datos de prueba tienen fechas fijas, con corte al **30/09/2026** y reservas futuras hasta mediados de octubre de 2026. Las consultas que dependen de "hoy" (accesos de hoy, membresías que vencen en 7 días, registros del último mes…) usan la variable `@hoy`, definida al inicio de cada archivo con `SET @hoy = DATE('2026-09-30');`. Así siempre devuelven resultados, sin importar el día en que se ejecuten. La variable vive solo en la sesión: si se ejecuta una consulta suelta en una conexión nueva, hay que ejecutar antes ese `SET`. En producción se cambia por `SET @hoy = CURDATE();`.
-
-### 4. Eventos desactivados
-
-Los eventos se crean con `DISABLE`: quedan definidos (se ven con `SHOW EVENTS`), pero no se ejecutan. Así no modifican los datos de prueba y las consultas siempre dan los mismos resultados. Para ponerlos en funcionamiento:
-
-```sql
-SET GLOBAL event_scheduler = ON;               -- requiere privilegios de administrador
-ALTER EVENT ev_recordatorio_renovacion ENABLE; -- repetir con cada evento
-```
-
-Para que el programador de eventos siga encendido al reiniciar MySQL, agregar `event_scheduler=ON` en el archivo de configuración (`my.ini` en Windows, `my.cnf` en Linux).
-
-> Una vez activos, los eventos cambian los datos (vencen membresías, aplican recargos, borran registros antiguos…), por lo que algunas consultas darán resultados distintos. Para volver a los datos originales basta con ejecutar de nuevo todos los scripts en orden.
+> **Fecha de referencia:** los datos de prueba tienen fechas fijas, con corte al **30/09/2026** y reservas futuras hasta mediados de octubre de 2026. Las consultas que dependen de "hoy" (accesos de hoy, membresías que vencen en 7 días, registros del último mes…) usan la variable `@hoy`, definida al inicio de cada archivo con `SET @hoy = DATE('2026-09-30');`. Así siempre devuelven resultados, sin importar el día en que se ejecuten. La variable vive solo en la sesión: si se ejecuta una consulta suelta en una conexión nueva, hay que ejecutar antes ese `SET`.
 
 ---
 
@@ -534,8 +520,6 @@ Además:
 | `miguel.ramirez1` | `Miguel4805!` | Usuario (cliente independiente) |
 | `carlos.munoz2` | `Carlos4292#` | Gerente Corporativo (Andes Software SAS) |
 | `contador` | `Contador5620*` | Contador |
-
-> Las contraseñas son solo para pruebas. En un entorno real deben cambiarse.
 
 ### Crear un usuario nuevo y asignarle un rol
 

@@ -27,12 +27,12 @@ DROP TRIGGER IF EXISTS trg_factura_au_activar_membresia;
 DELIMITER $$
 
 CREATE TRIGGER trg_factura_au_activar_membresia
-AFTER UPDATE ON FACTURA
+AFTER UPDATE ON factura
 FOR EACH ROW
 BEGIN
     IF NEW.estado = 'Pagada' AND OLD.estado <> 'Pagada' THEN
-        UPDATE MEMBRESIA m
-        JOIN DETALLE_FACTURA d ON d.id_membresia = m.id_membresia
+        UPDATE membresia m
+        JOIN detalle_factura d ON d.id_membresia = m.id_membresia
         SET m.estado = 'Activa'
         WHERE d.id_factura = NEW.id_factura
           AND m.estado IN ('Pendiente', 'Suspendida')

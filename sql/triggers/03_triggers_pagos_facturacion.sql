@@ -15,7 +15,28 @@ Ejecutar previamente DDL, DML y funciones.
 -- TRIGGER 11
 -- Crear automáticamente una factura al registrar un pago.
 -- =========================================
-
+DROP TRIGGER IF EXISTS trg_pago_bi_crear_factura;
+ 
+DELIMITER $$
+ 
+CREATE TRIGGER trg_pago_bi_crear_factura
+BEFORE INSERT ON pago
+FOR EACH ROW
+BEGIN
+    IF NEW.id_factura IS NULL THEN
+ 
+        -- Paso 1: crear la factura con el monto del pago
+        INSERT INTO factura (fecha_emision, fecha_vencimiento, total,
+                             recargo_aplicado, saldo_pendiente, estado)
+        VALUES (CURDATE(), CURDATE(), NEW.monto, 0, NEW.monto, 'Pendiente');
+ 
+        -- Paso 2: asignar al pago el id de la factura recién creada
+        SET NEW.id_factura = LAST_INSERT_ID();
+ 
+    END IF;
+END$$
+ 
+DELIMITER ;
 
 -- =========================================
 -- TRIGGER 12

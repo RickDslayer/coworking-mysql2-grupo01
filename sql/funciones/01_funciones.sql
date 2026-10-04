@@ -20,6 +20,33 @@ USE coworking_db;
 -- FUNCIÓN 01
 -- fn_membresia_activa(usuario_id) -> Devuelve TRUE si el usuario tiene membresía activa.
 -- =========================================
+DROP FUNCTION IF EXISTS fn_membresia_activa;
+ 
+DELIMITER $$
+ 
+CREATE FUNCTION fn_membresia_activa(usuario_id INT)
+RETURNS INT
+READS SQL DATA
+BEGIN
+    DECLARE v_cantidad INT;
+ 
+    
+    SELECT COUNT(*)
+      INTO v_cantidad
+      FROM membresia
+     WHERE id_usuario = usuario_id
+       AND estado = 'Activa'
+       AND fecha_fin >= CURDATE();
+ 
+    
+    IF v_cantidad > 0 THEN
+        RETURN 1;
+    ELSE
+        RETURN 0;
+    END IF;
+END$$
+ 
+DELIMITER ;
 -- =========================================
 -- FUNCIÓN 02
 -- fn_dias_restantes_membresia(usuario_id) -> Días restantes de vigencia.
@@ -118,6 +145,26 @@ END$$
 -- FUNCIÓN 06
 -- fn_total_reservas(usuario_id) -> Cantidad total de reservas del usuario.
 -- =========================================
+DROP FUNCTION IF EXISTS fn_total_reservas;
+ 
+DELIMITER $$
+ 
+CREATE FUNCTION fn_total_reservas(usuario_id INT)
+RETURNS INT
+READS SQL DATA
+BEGIN
+    DECLARE v_total INT;
+ 
+    
+    SELECT COUNT(*)
+      INTO v_total
+      FROM reserva
+     WHERE id_usuario = usuario_id;
+ 
+    RETURN v_total;
+END$$
+ 
+DELIMITER ;
 -- =========================================
 -- FUNCIÓN 07
 -- fn_horas_reservadas(usuario_id, mes, año) -> Total de horas reservadas en un período.
@@ -221,6 +268,33 @@ DELIMITER ;
 -- FUNCIÓN 11
 -- fn_total_pagado(usuario_id) -> Total pagado por un usuario.
 -- =========================================
+DROP FUNCTION IF EXISTS fn_total_pagado;
+ 
+DELIMITER $$
+ 
+CREATE FUNCTION fn_total_pagado(usuario_id INT)
+RETURNS DECIMAL(12,2)
+READS SQL DATA
+BEGIN
+    DECLARE v_total DECIMAL(12,2);
+ 
+    
+    SELECT SUM(pago.monto)
+      INTO v_total
+      FROM pago
+      JOIN factura ON factura.id_factura = pago.id_factura
+     WHERE factura.id_usuario = usuario_id
+       AND pago.estado = 'Pagado';
+ 
+    
+    IF v_total IS NULL THEN
+        SET v_total = 0;
+    END IF;
+ 
+    RETURN v_total;
+END$$
+ 
+DELIMITER ;
 -- =========================================
 -- FUNCIÓN 12
 -- fn_ingresos_por_mes(mes, año) -> Ingresos totales en un mes.
@@ -323,6 +397,27 @@ DELIMITER ;
 -- FUNCIÓN 16
 -- fn_total_asistencias(usuario_id) -> Cantidad total de asistencias del usuario.
 -- =========================================
+DROP FUNCTION IF EXISTS fn_total_asistencias;
+ 
+DELIMITER $$
+ 
+CREATE FUNCTION fn_total_asistencias(usuario_id INT)
+RETURNS INT
+READS SQL DATA
+BEGIN
+    DECLARE v_total INT;
+ 
+    -- Una asistencia = un acceso donde sí se permitió la entrada
+    SELECT COUNT(*)
+      INTO v_total
+      FROM acceso
+     WHERE id_usuario = usuario_id
+       AND resultado = 'Permitido';
+ 
+    RETURN v_total;
+END$$
+ 
+DELIMITER ;
 -- =========================================
 -- FUNCIÓN 17
 -- fn_asistencias_mes(usuario_id, mes, año) -> Total de asistencias en un mes.
@@ -399,3 +494,33 @@ DELIMITER ;
 -- FUNCIÓN 20
 -- fn_promedio_asistencias() -> Promedio de asistencias por usuario.
 -- =========================================
+DROP FUNCTION IF EXISTS fn_promedio_asistencias;
+ 
+DELIMITER $$
+ 
+CREATE FUNCTION fn_promedio_asistencias()
+RETURNS DECIMAL(10,2)
+READS SQL DATA
+BEGIN
+    DECLARE v_asistencias INT;
+    DECLARE v_usuarios    INT;
+ 
+    
+    SELECT COUNT(*) INTO v_asistencias
+      FROM acceso
+     WHERE resultado = 'Permitido';
+ 
+    
+    SELECT COUNT(*) INTO v_usuarios
+      FROM usuario;
+ 
+   
+    IF v_usuarios = 0 THEN
+        RETURN 0;
+    END IF;
+ 
+    
+    RETURN ROUND(v_asistencias / v_usuarios, 2);
+END$$
+ 
+DELIMITER ;

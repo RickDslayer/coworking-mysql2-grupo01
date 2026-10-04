@@ -22,6 +22,35 @@ Ejecutar previamente DDL y DML.
 -- Actualizar factura a “Pagada” cuando se confirma el pago.
 -- =========================================
 
+DELIMITER $$
+
+CREATE TRIGGER trg_pago_au_actualizar_factura
+AFTER UPDATE ON PAGO
+FOR EACH ROW
+BEGIN
+    IF OLD.estado <> NEW.estado
+       OR OLD.monto <> NEW.monto
+       OR NOT (OLD.id_factura <=> NEW.id_factura) THEN
+
+        UPDATE FACTURA f
+        LEFT JOIN (SELECT id_factura, SUM(monto) AS pagado
+                   FROM PAGO
+                   WHERE estado = 'Pagado'
+                   GROUP BY id_factura) p ON p.id_factura = f.id_factura
+        SET f.estado = CASE
+                           WHEN COALESCE(p.pagado, 0) > 0
+                                AND f.total + f.recargo_aplicado - COALESCE(p.pagado, 0) <= 0 THEN 'Pagada'
+                           WHEN COALESCE(p.pagado, 0) > 0                                     THEN 'Parcial'
+                           WHEN f.fecha_vencimiento < CURDATE()                               THEN 'Vencida'
+                           ELSE 'Pendiente'
+                       END,
+            f.saldo_pendiente = GREATEST(f.total + f.recargo_aplicado - COALESCE(p.pagado, 0), 0)
+        WHERE f.id_factura IN (NEW.id_factura, OLD.id_factura)
+          AND f.estado <> 'Anulada';
+    END IF;
+END $$
+
+DELIMITER ;
 
 -- =========================================
 -- TRIGGER 13

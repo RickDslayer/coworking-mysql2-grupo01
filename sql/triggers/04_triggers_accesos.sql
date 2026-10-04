@@ -22,6 +22,80 @@ Ejecutar previamente DDL y DML.
 -- Bloquear acceso si el usuario no tiene membresía activa.
 -- =========================================
 
+DELIMITER $$
+
+CREATE TRIGGER trg_acceso_bi_validar
+BEFORE INSERT ON ACCESO
+FOR EACH ROW
+BEGIN
+    DECLARE v_cred         INT;
+    DECLARE v_usuario      INT;
+    DECLARE v_cred_estado  VARCHAR(10);
+    DECLARE v_tipo         INT;
+    DECLARE v_reserva      INT;
+    DECLARE v_hora_ini     TIME;
+    DECLARE v_hora_fin     TIME;
+    DECLARE v_ult_estado   VARCHAR(20);
+
+    SET NEW.resultado = 'Permitido', NEW.motivo_rechazo = NULL;
+
+    -- Credencial leída
+    SET v_cred        = (SELECT id_credencial FROM CREDENCIAL WHERE codigo = NEW.codigo_leido);
+    SET v_usuario     = (SELECT id_usuario    FROM CREDENCIAL WHERE codigo = NEW.codigo_leido);
+    SET v_cred_estado = (SELECT estado        FROM CREDENCIAL WHERE codigo = NEW.codigo_leido);
+
+    IF v_cred IS NULL THEN
+        SET NEW.id_credencial  = NULL,
+            NEW.id_usuario     = NULL,
+            NEW.resultado      = 'Rechazado',
+            NEW.motivo_rechazo = IF(NEW.metodo = 'QR', 'QR invalido', 'Tarjeta invalida');
+    ELSE
+        SET NEW.id_credencial = v_cred,
+            NEW.id_usuario    = v_usuario;
+
+        IF v_cred_estado <> 'Activa' THEN
+            SET NEW.resultado      = 'Rechazado',
+                NEW.motivo_rechazo = CONCAT('Credencial ', LOWER(v_cred_estado));
+        ELSE
+            -- Membresía activa y vigente en la fecha del ingreso
+            SET v_tipo = (SELECT m.id_tipo FROM MEMBRESIA m
+                          WHERE m.id_usuario = v_usuario
+                            AND m.estado = 'Activa'
+                            AND DATE(NEW.fecha_hora_entrada) BETWEEN m.fecha_inicio AND m.fecha_fin
+                          ORDER BY m.fecha_fin DESC
+                          LIMIT 1);
+            -- Reserva confirmada en curso (se puede entrar 30 min antes)
+            SET v_reserva = (SELECT r.id_reserva FROM RESERVA r
+                             WHERE r.id_usuario = v_usuario
+                               AND r.estado = 'Confirmada'
+                               AND NEW.fecha_hora_entrada BETWEEN r.fecha_inicio - INTERVAL 30 MINUTE
+                                                              AND r.fecha_fin
+                             ORDER BY r.fecha_inicio
+                             LIMIT 1);
+
+            IF v_tipo IS NULL AND v_reserva IS NULL THEN
+                SET v_ult_estado = (SELECT estado FROM MEMBRESIA
+                                    WHERE id_usuario = v_usuario
+                                    ORDER BY fecha_inicio DESC, id_membresia DESC
+                                    LIMIT 1);
+                SET NEW.resultado      = 'Rechazado',
+                    NEW.motivo_rechazo = CASE
+                                             WHEN v_ult_estado = 'Suspendida'           THEN 'Membresia suspendida'
+                                             WHEN v_ult_estado IN ('Vencida', 'Activa') THEN 'Membresia vencida'
+                                             ELSE 'Membresia inactiva'
+                                         END;
+            ELSEIF v_reserva IS NULL THEN
+                -- Entra por membresía: se valida el horario de su tipo
+                SET v_hora_ini = (SELECT hora_acceso_inicio FROM TIPO_MEMBRESIA WHERE id_tipo = v_tipo);
+                SET v_hora_fin = (SELECT hora_acceso_fin    FROM TIPO_MEMBRESIA WHERE id_tipo = v_tipo);
+                IF TIME(NEW.fecha_hora_entrada) NOT BETWEEN v_hora_ini AND v_hora_fin THEN
+                    SET NEW.resultado      = 'Rechazado',
+                        NEW.motivo_rechazo = 'Fuera de horario';
+                END IF;
+            END IF;
+        END IF;
+    END IF;
+END $$
 
 -- =========================================
 -- TRIGGER 18

@@ -25,6 +25,32 @@ USE coworking_db;
 -- fn_dias_restantes_membresia(usuario_id) -> Días restantes de vigencia.
 -- =========================================
 -- =========================================
+
+DROP FUNCTION IF EXISTS fn_tipo_membresia;
+
+DELIMITER $$
+
+CREATE FUNCTION fn_tipo_membresia(usuario_id INT)
+RETURNS VARCHAR(20)
+READS SQL DATA
+BEGIN
+    DECLARE v_tipo VARCHAR(20);
+
+    SELECT tip.nombre
+      INTO v_tipo
+      FROM membresia AS mem
+     INNER JOIN tipo_membresia AS tip ON tip.id_tipo = mem.id_tipo
+     WHERE mem.id_usuario = usuario_id
+       AND mem.estado = 'Activa'
+     ORDER BY mem.fecha_inicio DESC
+     LIMIT 1;
+
+    -- Si no encontró ninguna, v_tipo queda vacío
+    RETURN IFNULL(v_tipo, 'Sin membresia');
+END$$
+
+DELIMITER ;
+
 -- CONSULTA 03
 -- fn_tipo_membresia(usuario_id) -> Retorna el tipo actual de membresía.
 -- =========================================
@@ -49,6 +75,32 @@ USE coworking_db;
 -- CONSULTA 08
 -- fn_espacio_mas_reservado() -> Retorna el ID del espacio más usado.
 -- =========================================
+
+DROP FUNCTION IF EXISTS fn_espacio_mas_reservado;
+
+DELIMITER $$
+
+CREATE FUNCTION fn_espacio_mas_reservado()
+RETURNS INT
+READS SQL DATA
+BEGIN
+    DECLARE v_id_espacio INT;
+
+
+    SELECT res.id_espacio
+      INTO v_id_espacio
+      FROM reserva AS res
+     WHERE res.estado NOT IN ('Cancelada', 'Liberada')
+     GROUP BY res.id_espacio
+     ORDER BY COUNT(*) DESC, res.id_espacio ASC
+     LIMIT 1;
+
+    RETURN v_id_espacio;
+END$$
+
+DELIMITER ;
+
+
 -- =========================================-- CONSULTA 09
 -- fn_reservas_activas(usuario_id) -> Cantidad de reservas activas.
 -- =========================================
@@ -56,6 +108,28 @@ USE coworking_db;
 -- CONSULTA 10
 -- fn_duracion_promedio_reservas(espacio_id) -> Promedio de duración de reservas en un espacio.
 -- =========================================
+
+DROP FUNCTION IF EXISTS fn_duracion_promedio_reservas;
+
+DELIMITER $$
+
+CREATE FUNCTION fn_duracion_promedio_reservas(espacio_id INT)
+RETURNS DECIMAL(10,2)
+READS SQL DATA
+BEGIN
+    DECLARE v_promedio_horas DECIMAL(10,2);
+
+    SELECT AVG(TIMESTAMPDIFF(MINUTE, res.fecha_inicio, res.fecha_fin)) / 60
+      INTO v_promedio_horas
+      FROM reserva AS res
+     WHERE res.id_espacio = espacio_id
+       AND res.estado NOT IN ('Cancelada', 'Liberada');
+
+    RETURN IFNULL(v_promedio_horas, 0);
+END$$
+
+DELIMITER ;
+
 -- Submódulo: Pagos y Facturación (Funciones 11 a 15)
 -- =========================================
 -- CONSULTA 11
@@ -69,6 +143,30 @@ USE coworking_db;
 -- CONSULTA 13
 -- fn_ingresos_por_membresias() -> Total de ingresos por membresías.
 -- =========================================
+
+
+DROP FUNCTION IF EXISTS fn_ingresos_por_membresias;
+
+DELIMITER $$
+
+CREATE FUNCTION fn_ingresos_por_membresias()
+RETURNS DECIMAL(14,2)
+READS SQL DATA
+BEGIN
+    DECLARE v_total DECIMAL(14,2);
+
+    SELECT COALESCE(SUM(df.monto), 0)
+      INTO v_total
+      FROM detalle_factura AS df
+      JOIN factura AS fac ON fac.id_factura = df.id_factura
+     WHERE df.id_membresia IS NOT NULL
+       AND fac.estado = 'Pagada';
+
+    RETURN v_total;
+END$$
+
+DELIMITER ;
+
 -- =========================================
 -- CONSULTA 14
 -- fn_ingresos_por_reservas() -> Total de ingresos por reservas.
@@ -89,6 +187,32 @@ USE coworking_db;
 -- CONSULTA 18
 -- fn_top_usuario_asistencias() -> Usuario con más accesos.
 -- =========================================
+
+DROP FUNCTION IF EXISTS fn_top_usuario_asistencias;
+
+DELIMITER $$
+
+CREATE FUNCTION fn_top_usuario_asistencias()
+RETURNS VARCHAR(150)
+READS SQL DATA
+BEGIN
+    DECLARE v_usuario VARCHAR(150);
+
+    SELECT CONCAT(usu.nombre, ' ', usu.apellidos)
+      INTO v_usuario
+      FROM acceso AS acc
+      JOIN usuario AS usu ON usu.id_usuario = acc.id_usuario
+     WHERE acc.resultado = 'Permitido'    
+     GROUP BY usu.id_usuario, usu.nombre, usu.apellidos
+     ORDER BY COUNT(*) DESC, usu.id_usuario ASC 
+     LIMIT 1;
+
+    RETURN v_usuario;
+END$$
+
+DELIMITER ;
+
+
 -- =========================================
 -- CONSULTA 19
 -- fn_ultima_asistencia(usuario_id) -> Fecha de última asistencia.

@@ -216,18 +216,51 @@ WHERE estado = 'Anulada';
 -- Mostrar usuarios con facturas pendientes mayores a $200.
 -- =========================================
 
+SELECT
+    u.id_usuario,
+    CONCAT ( u.nombre, ' ' ,u.apellidos) AS nombre_completo,
+    SUM(f.saldo_pendiente) AS total_pendiente
+FROM usuario AS u
+INNER JOIN factura AS f ON f.id_usuario = u.id_usuario
+WHERE f.estado <> 'Anulada'
+  AND f.saldo_pendiente > 0
+GROUP BY u.id_usuario, nombre_completo
+HAVING SUM(f.saldo_pendiente) > 200;
 
 -- =========================================
 -- CONSULTA 57
 -- Mostrar usuarios que han pagado más de una vez el mismo servicio.
 -- =========================================
 
+SELECT
+    u.id_usuario,
+    CONCAT( u.nombre, ' ' ,u.apellidos) AS nombre_completo,
+    s.nombre AS servicio,
+    COUNT(DISTINCT sc.id_contratado) AS veces_pagado
+FROM servicio_contratado AS sc
+INNER JOIN usuario AS u ON u.id_usuario = sc.id_usuario
+INNER JOIN servicio AS s ON s.id_servicio = sc.id_servicio
+INNER JOIN detalle_factura AS df ON df.id_contratado = sc.id_contratado
+INNER JOIN pago AS p ON p.id_factura = df.id_factura
+                    AND p.estado = 'Pagado'
+GROUP BY u.id_usuario, nombre_completo, s.id_servicio, s.nombre
+HAVING COUNT(DISTINCT sc.id_contratado) > 1;
 
 -- =========================================
 -- CONSULTA 58
 -- Listar ingresos por cada método de pago.
 -- =========================================
 
+SELECT
+    mp.nombre AS metodo_pago,
+    COALESCE(SUM(p.monto), 0) AS ingresos,
+    COUNT(p.id_pago) AS num_pagos
+FROM metodo_pago AS mp
+LEFT JOIN pago AS p
+    ON p.id_metodo = mp.id_metodo
+   AND p.estado = 'Pagado'
+GROUP BY mp.id_metodo, mp.nombre
+ORDER BY ingresos DESC;
 
 -- =========================================
 -- CONSULTA 59
@@ -235,7 +268,38 @@ WHERE estado = 'Anulada';
 -- =========================================
 
 
+SELECT
+    e.id_empresa,
+    e.nombre,
+    COUNT(f.id_factura) AS num_facturas,
+    COALESCE(SUM(f.total), 0) AS facturacion_acumulada
+FROM empresa AS e
+LEFT JOIN factura AS f
+    ON f.id_empresa = e.id_empresa
+   AND f.estado <> 'Anulada'
+GROUP BY e.id_empresa, e.nombre
+ORDER BY facturacion_acumulada DESC;
+
+
 -- =========================================
 -- CONSULTA 60
 -- Mostrar ingresos netos por mes del último año.
 -- =========================================
+
+SELECT
+    mes,
+    SUM(monto) AS ingresos_netos
+FROM (
+    SELECT DATE_FORMAT(fecha_pago, '%Y-%m') AS mes, monto
+    FROM pago
+    WHERE estado = 'Pagado'
+      AND fecha_pago >= DATE_FORMAT(CURDATE() - INTERVAL 11 MONTH, '%Y-%m-01')
+
+    UNION ALL
+
+    SELECT DATE_FORMAT(fecha, '%Y-%m') AS mes, -monto
+    FROM reembolso
+    WHERE fecha >= DATE_FORMAT(CURDATE() - INTERVAL 11 MONTH, '%Y-%m-01')
+) AS movimientos
+GROUP BY mes
+ORDER BY mes;

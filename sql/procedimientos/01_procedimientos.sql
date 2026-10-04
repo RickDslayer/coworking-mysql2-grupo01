@@ -485,6 +485,8 @@ DELIMITER ;
 -- Bloquear servicios adicionales por falta de pago -> Restringe acceso a servicios premium si
 -- existen facturas pendientes.
 -- =========================================
+DELIMITER $$
+
 CREATE PROCEDURE sp_bloquear_servicios_por_impago()
 BEGIN
     UPDATE servicio_contratado AS sc
@@ -502,12 +504,15 @@ BEGIN
 
     SELECT ROW_COUNT() AS servicios_bloqueados;
 END$$
+
+DELIMITER ;
 -- Submódulo: Accesos y Asistencias (Procedimientos 14 a 17)
 -- =========================================
 -- PROCEDIMIENTO 14
 -- Registrar acceso de usuario (entrada) -> Valida membresía o reserva activa y registra
 -- entrada en logs.
 -- =========================================
+DELIMITER $$
 
 CREATE PROCEDURE sp_registrar_entrada(
     IN  p_codigo    VARCHAR(100),
@@ -539,6 +544,7 @@ BEGIN
           AND fecha_hora_entrada < v_entrada;
     END IF;
 END //
+DELIMITER ;
 
 -- =========================================
 -- PROCEDIMIENTO 15
@@ -672,6 +678,8 @@ DELIMITER ;
 -- Marcar reservas como "No Show" y generar penalización -> Detecta reservas confirmadas
 -- sin asistencia y aplica cargo automático.
 -- =========================================
+DELIMITER $$
+
 CREATE PROCEDURE sp_bloquear_servicios_por_impago()
 BEGIN
     UPDATE servicio_contratado AS sc
@@ -689,6 +697,7 @@ BEGIN
 
     SELECT ROW_COUNT() AS servicios_bloqueados;
 END$$
+DELIMITER ;
 -- Submódulo: Corporativos y Administración (Procedimientos 18 a 20)
 -- =========================================
 -- PROCEDIMIENTO 18
@@ -737,6 +746,7 @@ DELIMITER ;
 -- Generar reporte de ingresos mensuales acumulados -> Calcula ingresos por mes e ingresos
 -- acumulados en el año.
 -- =========================================
+DELIMITER $$
 CREATE PROCEDURE sp_bloquear_servicios_por_impago()
 BEGIN
     UPDATE servicio_contratado AS sc
@@ -754,3 +764,5 @@ BEGIN
 
     SELECT ROW_COUNT() AS servicios_bloqueados;
 END$$
+
+DELIMITER ;

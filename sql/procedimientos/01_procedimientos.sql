@@ -95,6 +95,24 @@ DELIMITER ;
 -- Suspender membresías con facturas impagas por más de X días -> Cambia el estado a
 -- "Suspendida" para usuarios con deudas.
 -- =========================================
+DELIMITER $$
+
+CREATE PROCEDURE sp_suspender_membresias_impagas(IN p_dias INT)
+BEGIN
+    UPDATE membresia AS m
+    SET m.estado = 'Suspendida'
+    WHERE m.estado = 'Activa'
+      AND EXISTS (
+            SELECT 1
+            FROM factura AS f
+            WHERE f.id_usuario = m.id_usuario
+              AND f.estado IN ('Pendiente', 'Parcial', 'Vencida')
+              AND f.saldo_pendiente > 0
+              AND f.fecha_vencimiento < CURDATE() - INTERVAL p_dias DAY
+      );
+
+    SELECT ROW_COUNT() AS membresias_suspendidas;
+END$$
 -- Submódulo: Reservas y Espacios (Procedimientos 05 a 09)
 -- =========================================
 -- PROCEDIMIENTO 05
@@ -276,11 +294,61 @@ DELIMITER ;
 -- Cancelar reserva con opción de reembolso parcial -> Marca reserva como "Cancelada" y
 -- genera un registro de reembolso si aplica.
 -- =========================================
+CREATE PROCEDURE sp_cancelar_reserva(IN p_id_reserva INT, IN p_con_reembolso TINYINT)
+BEGIN
+    DECLARE v_estado VARCHAR(30) DEFAULT NULL;
+    DECLARE v_inicio DATETIME;
+    DECLARE v_id_pago INT DEFAULT NULL;
+    DECLARE v_monto_linea DECIMAL(10,2) DEFAULT NULL;
+
+    SELECT estado, fecha_inicio INTO v_estado, v_inicio
+    FROM reserva
+    WHERE id_reserva = p_id_reserva;
+
+    IF v_estado IS NULL THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'La reserva no existe.';
+    END IF;
+
+    IF v_estado NOT IN ('Pendiente de Confirmacion', 'Confirmada') OR v_inicio <= NOW() THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'Solo se pueden cancelar reservas pendientes o confirmadas que aun no han iniciado.';
+    END IF;
+
+    UPDATE reserva
+    SET estado = 'Cancelada'
+    WHERE id_reserva = p_id_reserva;
+
+    IF p_con_reembolso = 1 THEN
+        SELECT p.id_pago, df.monto INTO v_id_pago, v_monto_linea
+        FROM detalle_factura AS df
+        INNER JOIN pago AS p ON p.id_factura = df.id_factura
+                            AND p.estado = 'Pagado'
+        WHERE df.id_reserva = p_id_reserva
+        ORDER BY p.fecha_pago DESC
+        LIMIT 1;
+
+        IF v_id_pago IS NOT NULL THEN
+            INSERT INTO reembolso (id_reserva, id_pago, monto, motivo, fecha)
+            VALUES (p_id_reserva, v_id_pago, ROUND(v_monto_linea * 0.5, 2),
+                    'Cancelacion con reembolso parcial (50%)', NOW());
+        END IF;
+    END IF;
+END$$
 -- =========================================
 -- PROCEDIMIENTO 09
 -- Liberar reservas no confirmadas después de X horas -> Automatiza la cancelación de
 -- reservas en estado "Pendiente".
 -- =========================================
+CREATE PROCEDURE sp_liberar_reservas_pendientes(IN p_horas INT)
+BEGIN
+    UPDATE reserva
+    SET estado = 'Cancelada'
+    WHERE estado = 'Pendiente de Confirmacion'
+      AND fecha_creacion < NOW() - INTERVAL p_horas HOUR;
+
+    SELECT ROW_COUNT() AS reservas_liberadas;
+END$$
+
 -- Submódulo: Pagos y Facturación (Procedimientos 10 a 13)
 -- =========================================
 -- PROCEDIMIENTO 10
@@ -415,6 +483,23 @@ DELIMITER ;
 -- Bloquear servicios adicionales por falta de pago -> Restringe acceso a servicios premium si
 -- existen facturas pendientes.
 -- =========================================
+CREATE PROCEDURE sp_bloquear_servicios_por_impago()
+BEGIN
+    UPDATE servicio_contratado AS sc
+    SET sc.estado = 'Bloqueado'
+    WHERE sc.estado = 'Activo'
+      AND sc.id_reserva IS NULL
+      AND EXISTS (
+            SELECT 1
+            FROM factura AS f
+            WHERE f.id_usuario = sc.id_usuario
+              AND f.estado IN ('Pendiente', 'Parcial', 'Vencida')
+              AND f.saldo_pendiente > 0
+              AND f.fecha_vencimiento < CURDATE()
+      );
+
+    SELECT ROW_COUNT() AS servicios_bloqueados;
+END$$
 -- Submódulo: Accesos y Asistencias (Procedimientos 14 a 17)
 -- =========================================
 -- PROCEDIMIENTO 14
@@ -585,6 +670,23 @@ DELIMITER ;
 -- Marcar reservas como "No Show" y generar penalización -> Detecta reservas confirmadas
 -- sin asistencia y aplica cargo automático.
 -- =========================================
+CREATE PROCEDURE sp_bloquear_servicios_por_impago()
+BEGIN
+    UPDATE servicio_contratado AS sc
+    SET sc.estado = 'Bloqueado'
+    WHERE sc.estado = 'Activo'
+      AND sc.id_reserva IS NULL
+      AND EXISTS (
+            SELECT 1
+            FROM factura AS f
+            WHERE f.id_usuario = sc.id_usuario
+              AND f.estado IN ('Pendiente', 'Parcial', 'Vencida')
+              AND f.saldo_pendiente > 0
+              AND f.fecha_vencimiento < CURDATE()
+      );
+
+    SELECT ROW_COUNT() AS servicios_bloqueados;
+END$$
 -- Submódulo: Corporativos y Administración (Procedimientos 18 a 20)
 -- =========================================
 -- PROCEDIMIENTO 18
@@ -633,3 +735,20 @@ DELIMITER ;
 -- Generar reporte de ingresos mensuales acumulados -> Calcula ingresos por mes e ingresos
 -- acumulados en el año.
 -- =========================================
+CREATE PROCEDURE sp_bloquear_servicios_por_impago()
+BEGIN
+    UPDATE servicio_contratado AS sc
+    SET sc.estado = 'Bloqueado'
+    WHERE sc.estado = 'Activo'
+      AND sc.id_reserva IS NULL
+      AND EXISTS (
+            SELECT 1
+            FROM factura AS f
+            WHERE f.id_usuario = sc.id_usuario
+              AND f.estado IN ('Pendiente', 'Parcial', 'Vencida')
+              AND f.saldo_pendiente > 0
+              AND f.fecha_vencimiento < CURDATE()
+      );
+
+    SELECT ROW_COUNT() AS servicios_bloqueados;
+END$$

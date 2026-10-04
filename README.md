@@ -16,7 +16,6 @@ Base de datos en **MySQL 8** para administrar la operación completa de un espac
 6. [Ejemplos de consultas](#ejemplos-de-consultas)
 7. [Funciones, triggers, procedimientos y eventos](#funciones-triggers-procedimientos-y-eventos)
 8. [Roles de usuario y permisos](#roles-de-usuario-y-permisos)
-9. [Contacto](#contacto)
 
 ---
 
@@ -566,12 +565,3 @@ SELECT * FROM v_mis_reservas;   -- solo sus reservas
 SELECT * FROM reserva;          -- ERROR 1142: sin permiso sobre la tabla
 SHOW GRANTS FOR 'rol_usuario';  -- (como root) ver los permisos del rol
 ```
-
----
-
-## Contacto
-
-- **Ricardo Vargas**, Desarrollador Full Stack
-- Correo: rjvargasg12@gmail.com
-- GitHub: [RickDslayer](https://github.com/RickDslayer)
-- LinkedIn: [ricardo-vargas-4a0bb9215](https://www.linkedin.com/in/ricardo-vargas-4a0bb9215)

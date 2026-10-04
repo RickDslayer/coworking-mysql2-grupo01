@@ -19,6 +19,16 @@ USE coworking_db;
 -- EVENTO 01
 -- Revisar diariamente membresías vencidas y actualizarlas a estado "Vencida".
 -- =========================================
+
+DROP EVENT IF EXISTS ev_membresias_vencidas;
+ 
+CREATE EVENT ev_membresias_vencidas
+ON SCHEDULE EVERY 1 DAY
+STARTS CURRENT_DATE + INTERVAL 1 DAY + INTERVAL '00:05' HOUR_MINUTE
+DISABLE  -- se deja desactivado por defecto; activar según necesidad
+COMMENT 'Diario 00:05 - marca como Vencida las membresias que superaron su fecha de fin'
+DO
+    CALL sp_actualizar_membresias_vencidas(@membresias_actualizadas);
 -- =========================================
 -- EVENTO 02
 -- Enviar recordatorio de renovación 5 días antes de vencer la membresía.
@@ -133,6 +143,18 @@ DO
 -- EVENTO 06
 -- Cancelar automáticamente reservas no confirmadas después de 2 horas.
 -- =========================================
+
+DROP EVENT IF EXISTS ev_cancelar_reservas_pendientes;
+ 
+CREATE EVENT ev_cancelar_reservas_pendientes
+ON SCHEDULE EVERY 15 MINUTE
+DISABLE  
+COMMENT 'Cada 15 min - cancela reservas pendientes de confirmacion con mas de 2 horas'
+DO
+    UPDATE reserva
+       SET estado = 'Cancelada'
+     WHERE estado = 'Pendiente de Confirmacion'
+       AND fecha_creacion < NOW() - INTERVAL 2 HOUR;
 -- =========================================
 -- EVENTO 07
 -- Enviar recordatorio 1 hora antes de la reserva a cada usuario.
@@ -243,11 +265,50 @@ DELIMITER ;
 -- EVENTO 10
 -- Liberar reservas bloqueadas si no se inicia en los primeros 15 minutos.
 -- =========================================
+
+DROP EVENT IF EXISTS ev_liberar_reservas_sin_inicio;
+ 
+CREATE EVENT ev_liberar_reservas_sin_inicio
+ON SCHEDULE EVERY 5 MINUTE
+DISABLE  -- se deja desactivado por defecto; activar según necesidad
+COMMENT 'Cada 5 min - libera reservas confirmadas sin ingreso tras 15 minutos de iniciadas'
+DO
+    UPDATE reserva AS r
+       SET r.estado = 'Liberada'
+     WHERE r.estado = 'Confirmada'
+       AND r.fecha_inicio < NOW() - INTERVAL 15 MINUTE
+       AND r.fecha_fin > NOW()
+       AND NOT EXISTS (SELECT 1
+                         FROM acceso AS a
+                        WHERE a.id_reserva = r.id_reserva
+                          AND a.resultado = 'Permitido');
 -- Submódulo: Pagos y Facturación (Eventos 11 a 15)
 -- =========================================
 -- EVENTO 11
 -- Enviar recordatorio de pago pendiente cada 3 días.
 -- =========================================
+
+DROP EVENT IF EXISTS ev_recordatorio_pago_pendiente;
+ 
+CREATE EVENT ev_recordatorio_pago_pendiente
+ON SCHEDULE EVERY 3 DAY
+STARTS CURRENT_DATE + INTERVAL 1 DAY + INTERVAL '09:00' HOUR_MINUTE
+DISABLE  -- se deja desactivado por defecto; activar según necesidad
+COMMENT 'Cada 3 dias 09:00 - recordatorio a clientes con facturas pendientes de pago'
+DO
+    INSERT INTO notificacion (id_usuario, destinatario_rol, tipo, asunto, mensaje, fecha_programada)
+    SELECT f.id_usuario,
+           'Usuario',
+           'Recordatorio',
+           'Tienes un pago pendiente',
+           CONCAT('Hola ', u.nombre, ', tu factura #', f.id_factura,
+                  ' tiene un saldo pendiente de $', f.saldo_pendiente,
+                  ' y vence el ', DATE_FORMAT(f.fecha_vencimiento, '%d/%m/%Y'), '.'),
+           NOW()
+      FROM factura AS f
+      JOIN usuario AS u ON u.id_usuario = f.id_usuario
+     WHERE f.estado IN ('Pendiente', 'Parcial', 'Vencida')
+       AND f.saldo_pendiente > 0;
 -- =========================================
 -- EVENTO 12
 -- Bloquear servicios adicionales si existen facturas vencidas mayores a 10 días.
@@ -418,6 +479,17 @@ DELIMITER ;
 -- EVENTO 16
 -- Eliminar accesos antiguos (más de 1 año) automáticamente.
 -- =========================================
+
+DROP EVENT IF EXISTS ev_eliminar_accesos_antiguos;
+ 
+CREATE EVENT ev_eliminar_accesos_antiguos
+ON SCHEDULE EVERY 1 MONTH
+STARTS LAST_DAY(CURRENT_DATE) + INTERVAL 1 DAY + INTERVAL '02:00' HOUR_MINUTE
+DISABLE  -- se deja desactivado por defecto; activar según necesidad
+COMMENT 'Mensual 02:00 - elimina accesos con mas de 1 año de antigüedad'
+DO
+    DELETE FROM acceso
+     WHERE fecha_hora_entrada < NOW() - INTERVAL 1 YEAR;
 -- =========================================
 -- EVENTO 17
 -- Enviar reporte diario de asistencias al administrador.

@@ -15,7 +15,32 @@ Ejecutar previamente DDL, DML y funciones.
 -- TRIGGER 06
 -- Validar que no existan reservas duplicadas en el mismo espacio, fecha y hora.
 -- =========================================
-
+DROP TRIGGER IF EXISTS trg_membresia_bd_bloquear;
+ 
+DELIMITER $$
+ 
+CREATE TRIGGER trg_membresia_bd_bloquear
+BEFORE DELETE ON membresia
+FOR EACH ROW
+BEGIN
+    DECLARE v_reservas INT;
+ 
+    n
+    SELECT COUNT(*) INTO v_reservas
+      FROM reserva
+     WHERE id_usuario = OLD.id_usuario
+       AND estado = 'Confirmada'
+       AND fecha_fin >= NOW();
+ 
+   
+    IF v_reservas > 0 THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'No se puede eliminar la membresia: el usuario tiene reservas activas.';
+    END IF;
+END$$
+ 
+DELIMITER ;
+ 
 
 -- =========================================
 -- TRIGGER 07

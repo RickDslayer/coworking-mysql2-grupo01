@@ -15,7 +15,35 @@ Ejecutar previamente DDL, DML y funciones.
 -- TRIGGER 16
 -- Registrar asistencia automáticamente al validar acceso con QR o tarjeta.
 -- =========================================
-
+CREATE TABLE IF NOT EXISTS asistencia (
+    id_asistencia INT AUTO_INCREMENT PRIMARY KEY,
+    id_acceso     INT NOT NULL,
+    id_usuario    INT NOT NULL,
+    hora_entrada  DATETIME NOT NULL,
+    hora_salida   DATETIME NULL,
+    observacion   VARCHAR(100) NULL
+);
+ 
+DROP TRIGGER IF EXISTS trg_acceso_ai_registrar_asistencia;
+ 
+DELIMITER $$
+ 
+CREATE TRIGGER trg_acceso_ai_registrar_asistencia
+AFTER INSERT ON acceso
+FOR EACH ROW
+BEGIN
+    
+    IF NEW.resultado = 'Permitido'
+       AND NEW.id_usuario IS NOT NULL
+       AND NEW.metodo IN ('QR', 'Tarjeta') THEN
+ 
+        INSERT INTO asistencia (id_acceso, id_usuario, hora_entrada)
+        VALUES (NEW.id_acceso, NEW.id_usuario, NEW.fecha_hora_entrada);
+ 
+    END IF;
+END$$
+ 
+DELIMITER ;
 
 -- =========================================
 -- TRIGGER 17
@@ -130,13 +158,29 @@ DELIMITER ;
 -- TRIGGER 19
 -- Registrar salida automáticamente si el usuario vuelve a entrar sin salida previa.
 -- =========================================
-
-
---     NO se puede implementar como trigger: tendría que actualizar una fila de
---     ACCESO mientras se inserta otra en ACCESO (MySQL error 1442).
---     Está implementado en el procedimiento sp_registrar_entrada: al registrar
---     un ingreso permitido, cierra los ingresos anteriores del usuario que no
---     tienen salida y los marca con salida_automatica = TRUE.
+DROP TRIGGER IF EXISTS trg_acceso_ai_salida_automatica;
+ 
+DELIMITER $$
+ 
+CREATE TRIGGER trg_acceso_ai_salida_automatica
+AFTER INSERT ON acceso
+FOR EACH ROW
+BEGIN
+    IF NEW.resultado = 'Permitido' AND NEW.id_usuario IS NOT NULL THEN
+ 
+        -- Las asistencias anteriores del usuario que siguen sin salida
+        -- se cierran con la hora de esta nueva entrada
+        UPDATE asistencia
+           SET hora_salida = NEW.fecha_hora_entrada,
+               observacion = 'Salida automatica por nuevo ingreso'
+         WHERE id_usuario = NEW.id_usuario
+           AND hora_salida IS NULL
+           AND id_acceso <> NEW.id_acceso;
+ 
+    END IF;
+END$$
+ 
+DELIMITER ;
 
 
 -- =========================================

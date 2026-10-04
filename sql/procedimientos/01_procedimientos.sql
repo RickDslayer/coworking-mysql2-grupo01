@@ -19,6 +19,59 @@ USE coworking_db;
 -- Registrar nueva membresía y asignarla a un usuario -> Inserta una nueva membresía con 
 -- fecha de inicio, fecha de vencimiento y estado inicial.
 -- =========================================
+DROP PROCEDURE IF EXISTS sp_registrar_membresia;
+ 
+DELIMITER $$
+ 
+CREATE PROCEDURE sp_registrar_membresia(
+    IN  p_id_usuario   INT,
+    IN  p_id_tipo      INT,
+    OUT p_id_membresia INT)
+BEGIN
+    DECLARE v_duracion   INT;
+    DECLARE v_nombre     VARCHAR(20);
+    DECLARE v_empresa    INT;
+    DECLARE v_id_factura INT;
+ 
+
+    IF NOT EXISTS (SELECT 1 FROM usuario WHERE id_usuario = p_id_usuario) THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'El usuario no existe';
+    END IF;
+ 
+   
+    SELECT duracion_dias, nombre
+      INTO v_duracion, v_nombre
+      FROM tipo_membresia
+     WHERE id_tipo = p_id_tipo;
+ 
+    IF v_duracion IS NULL THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'El tipo de membresia no existe';
+    END IF;
+ 
+    
+    IF EXISTS (SELECT 1 FROM membresia
+               WHERE id_usuario = p_id_usuario
+                 AND estado IN ('Activa', 'Pendiente')
+                 AND fecha_fin >= CURDATE()) THEN
+        SIGNAL SQLSTATE '45000'
+            SET MESSAGE_TEXT = 'El usuario ya tiene una membresia vigente. Use sp_renovar_membresia.';
+    END IF;
+ 
+    
+    INSERT INTO membresia (id_usuario, id_tipo, estado, fecha_inicio, fecha_fin)
+    VALUES (p_id_usuario, p_id_tipo, 'Pendiente', CURDATE(),
+            DATE_ADD(CURDATE(), INTERVAL v_duracion DAY));
+    SET p_id_membresia = LAST_INSERT_ID();
+ 
+   
+    SET v_empresa = (SELECT id_empresa FROM usuario WHERE id_usuario = p_id_usuario);
+    IF NOT (v_empresa IS NOT NULL AND v_nombre = 'Corporativa') THEN
+        CALL sp_factura_membresia(p_id_membresia, v_id_factura);
+    END IF;
+END
+END$$
+ 
+DELIMITER ;
 -- =========================================
 -- PROCEDIMIENTO 02
 -- Renovar una membresía existente -> Extiende la vigencia de una membresía según el tipo
@@ -119,6 +172,68 @@ END$$
 -- Verificar disponibilidad de un espacio antes de crear reserva -> Comprueba que no haya
 -- solapamiento de horarios en el mismo espacio.
 -- =========================================
+
+DROP PROCEDURE IF EXISTS sp_verificar_disponibilidad;
+ 
+DELIMITER $$
+ 
+CREATE PROCEDURE sp_verificar_disponibilidad(
+    IN  p_id_espacio INT,
+    IN  p_inicio     DATETIME,
+    IN  p_fin        DATETIME,
+    OUT p_disponible BOOLEAN,
+    OUT p_motivo     VARCHAR(100))
+BEGIN
+    DECLARE v_estado   VARCHAR(20) DEFAULT NULL;
+    DECLARE v_apertura TIME        DEFAULT NULL;
+    DECLARE v_cierre   TIME        DEFAULT NULL;
+    DECLARE v_choques  INT         DEFAULT 0;
+ 
+    
+    SELECT estado INTO v_estado
+      FROM espacio
+     WHERE id_espacio = p_id_espacio;
+ 
+    
+    SELECT hora_apertura, hora_cierre
+      INTO v_apertura, v_cierre
+      FROM horario_espacio
+     WHERE id_espacio = p_id_espacio
+       AND dia_semana = WEEKDAY(p_inicio) + 1;
+ 
+    
+    SELECT COUNT(*) INTO v_choques
+      FROM reserva
+     WHERE id_espacio = p_id_espacio
+       AND estado NOT IN ('Cancelada', 'Liberada')
+       AND p_inicio < fecha_fin
+       AND p_fin    > fecha_inicio;
+ 
+   
+    SET p_disponible = FALSE;
+ 
+    IF v_estado IS NULL THEN
+        SET p_motivo = 'El espacio no existe';
+    ELSEIF v_estado <> 'Disponible' THEN
+        SET p_motivo = CONCAT('El espacio no esta disponible (', v_estado, ')');
+    ELSEIF p_inicio >= p_fin THEN
+        SET p_motivo = 'La hora de inicio debe ser anterior a la hora de fin';
+    ELSEIF DATE(p_inicio) <> DATE(p_fin) THEN
+        SET p_motivo = 'La reserva debe empezar y terminar el mismo dia';
+    ELSEIF v_apertura IS NULL THEN
+        SET p_motivo = 'El espacio no abre ese dia';
+    ELSEIF TIME(p_inicio) < v_apertura OR TIME(p_fin) > v_cierre THEN
+        SET p_motivo = CONCAT('Fuera del horario del espacio (', v_apertura, ' a ', v_cierre, ')');
+    ELSEIF v_choques > 0 THEN
+        SET p_motivo = 'El espacio ya esta reservado en ese horario';
+    ELSE
+        SET p_disponible = TRUE;
+        SET p_motivo     = 'Disponible';
+    END IF;
+END
+END$$
+ 
+DELIMITER ;
 -- =========================================
 -- PROCEDIMIENTO 06
 -- Crear una nueva reserva de espacio -> Inserta una reserva en estado "Pendiente" y la vincula
@@ -356,6 +471,55 @@ END$$
 -- PROCEDIMIENTO 10
 -- Generar factura por membresía -> Crea factura al activar o renovar una membresía.
 -- =========================================
+
+DROP PROCEDURE IF EXISTS sp_factura_membresia;
+ 
+DELIMITER $$
+ 
+CREATE PROCEDURE sp_factura_membresia(
+    IN  p_id_membresia INT,
+    OUT p_id_factura   INT)
+BEGIN
+    DECLARE v_usuario INT           DEFAULT NULL;
+    DECLARE v_precio  DECIMAL(10,2);
+    DECLARE v_nombre  VARCHAR(20);
+    DECLARE v_inicio  DATE;
+    DECLARE v_fin     DATE;
+ 
+    
+    SELECT m.id_usuario, t.precio, t.nombre, m.fecha_inicio, m.fecha_fin
+      INTO v_usuario, v_precio, v_nombre, v_inicio, v_fin
+      FROM membresia AS m
+      JOIN tipo_membresia AS t ON t.id_tipo = m.id_tipo
+     WHERE m.id_membresia = p_id_membresia;
+ 
+    IF v_usuario IS NULL THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'La membresia no existe';
+    END IF;
+ 
+    
+    IF EXISTS (SELECT 1
+                 FROM detalle_factura AS d
+                 JOIN factura AS f ON f.id_factura = d.id_factura
+                WHERE d.id_membresia = p_id_membresia
+                  AND f.estado <> 'Anulada') THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'La membresia ya tiene una factura';
+    END IF;
+ 
+    
+    INSERT INTO factura (id_usuario, fecha_emision, fecha_vencimiento, total, saldo_pendiente, estado)
+    VALUES (v_usuario, CURDATE(), DATE_ADD(CURDATE(), INTERVAL 5 DAY), v_precio, v_precio, 'Pendiente');
+    SET p_id_factura = LAST_INSERT_ID();
+ 
+    
+    INSERT INTO detalle_factura (id_factura, id_membresia, descripcion, monto)
+    VALUES (p_id_factura, p_id_membresia,
+            CONCAT('Membresia ', v_nombre, ' del ', v_inicio, ' al ', v_fin),
+            v_precio);
+END
+END$$
+ 
+DELIMITER ;
 -- =========================================
 -- PROCEDIMIENTO 11
 -- Generar factura consolidada para empresa -> Agrupa cargos de empleados corporativos en
@@ -704,6 +868,66 @@ DELIMITER ;
 -- Registrar lote de empleados de una empresa con membresía corporativa -> Inserta varios
 -- usuarios vinculados a una empresa y les asigna membresía.
 -- =========================================
+
+DROP PROCEDURE IF EXISTS sp_registrar_lote_empleados;
+ 
+DELIMITER $$
+ 
+CREATE PROCEDURE sp_registrar_lote_empleados(
+    IN  p_id_empresa INT,
+    OUT p_total      INT)
+BEGIN
+    DECLARE v_rol      VARCHAR(20) DEFAULT NULL;
+    DECLARE v_emp_cta  INT         DEFAULT NULL;
+    DECLARE v_id_tipo  INT;
+    DECLARE v_duracion INT;
+ 
+    
+    SELECT rol, id_empresa
+      INTO v_rol, v_emp_cta
+      FROM cuenta
+     WHERE username = SUBSTRING_INDEX(USER(), '@', 1);
+ 
+    IF v_rol = 'Gerente' AND NOT (v_emp_cta <=> p_id_empresa) THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Solo puede registrar empleados de su empresa';
+    END IF;
+ 
+    
+    IF NOT EXISTS (SELECT 1 FROM empresa WHERE id_empresa = p_id_empresa) THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'La empresa no existe';
+    END IF;
+ 
+    s
+    IF NOT EXISTS (SELECT 1 FROM lote_empleados) THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'La tabla lote_empleados esta vacia';
+    END IF;
+ 
+    
+    SELECT id_tipo, duracion_dias
+      INTO v_id_tipo, v_duracion
+      FROM tipo_membresia
+     WHERE nombre = 'Corporativa';
+ 
+    
+    INSERT INTO usuario (documento, nombre, apellidos, fecha_nacimiento, email, telefono, id_empresa)
+    SELECT documento, nombre, apellidos, fecha_nacimiento, email, telefono, p_id_empresa
+      FROM lote_empleados;
+ 
+    SET p_total = ROW_COUNT();
+ 
+    
+    INSERT INTO membresia (id_usuario, id_tipo, estado, fecha_inicio, fecha_fin)
+    SELECT u.id_usuario, v_id_tipo, 'Pendiente', CURDATE(),
+           DATE_ADD(CURDATE(), INTERVAL v_duracion DAY)
+      FROM usuario AS u
+      JOIN lote_empleados AS l ON l.documento = u.documento;
+ 
+    
+    DELETE FROM lote_empleados;
+END
+END$$
+ 
+DELIMITER ;
 -- =========================================
 -- PROCEDIMIENTO 19
 -- Cancelar reservas futuras al eliminar membresía de usuario -> Recorre reservas

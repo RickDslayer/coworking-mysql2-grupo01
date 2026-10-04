@@ -294,6 +294,7 @@ DELIMITER ;
 -- Cancelar reserva con opción de reembolso parcial -> Marca reserva como "Cancelada" y
 -- genera un registro de reembolso si aplica.
 -- =========================================
+DELIMITER $$
 CREATE PROCEDURE sp_cancelar_reserva(IN p_id_reserva INT, IN p_con_reembolso TINYINT)
 BEGIN
     DECLARE v_estado VARCHAR(30) DEFAULT NULL;
@@ -334,6 +335,7 @@ BEGIN
         END IF;
     END IF;
 END$$
+DELIMITER ;
 -- =========================================
 -- PROCEDIMIENTO 09
 -- Liberar reservas no confirmadas después de X horas -> Automatiza la cancelación de

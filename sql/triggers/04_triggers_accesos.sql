@@ -132,6 +132,12 @@ DELIMITER ;
 -- =========================================
 
 
+--     NO se puede implementar como trigger: tendría que actualizar una fila de
+--     ACCESO mientras se inserta otra en ACCESO (MySQL error 1442).
+--     Está implementado en el procedimiento sp_registrar_entrada: al registrar
+--     un ingreso permitido, cierra los ingresos anteriores del usuario que no
+--     tienen salida y los marca con salida_automatica = TRUE.
+
 
 -- =========================================
 -- TRIGGER 20

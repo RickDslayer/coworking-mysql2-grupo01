@@ -23,6 +23,35 @@ USE coworking_db;
 -- CONSULTA 02
 -- Enviar recordatorio de renovación 5 días antes de vencer la membresía.
 -- =========================================
+DELIMITER $$
+
+CREATE EVENT ev_recordatorio_renovacion
+ON SCHEDULE EVERY 1 DAY
+STARTS CURRENT_DATE + INTERVAL 1 DAY + INTERVAL '08:00' HOUR_MINUTE
+DISABLE  -- se deja desactivado por defecto; activar según necesidad
+COMMENT 'Diario 08:00 - aviso a clientes cuya membresia vence en 5 dias'
+DO
+BEGIN
+    INSERT INTO NOTIFICACION (id_usuario, destinatario_rol, tipo, asunto, mensaje, fecha_programada)
+    SELECT m.id_usuario,
+           'Usuario',
+           'Recordatorio',
+           'Tu membresia vence pronto',
+           CONCAT('Hola ', u.nombre, ', tu membresia ', t.nombre, ' vence el ',
+                  DATE_FORMAT(m.fecha_fin, '%d/%m/%Y'),
+                  '. Renuevala para no perder el acceso.'),
+           NOW()
+    FROM MEMBRESIA m
+    JOIN USUARIO u        ON u.id_usuario = m.id_usuario
+    JOIN TIPO_MEMBRESIA t ON t.id_tipo    = m.id_tipo
+    WHERE m.estado = 'Activa'
+      AND m.fecha_fin = CURDATE() + INTERVAL 5 DAY
+      -- no avisar si ya renovó (tiene otra membresía que empieza después)
+      AND NOT EXISTS (SELECT 1 FROM MEMBRESIA m2
+                      WHERE m2.id_usuario = m.id_usuario
+                        AND m2.fecha_inicio >= m.fecha_fin);
+END $$
+
 -- =========================================
 -- CONSULTA 03
 -- Suspender membresías inactivas después de 30 días sin pago.
@@ -60,6 +89,36 @@ DO
 -- CONSULTA 07
 -- Enviar recordatorio 1 hora antes de la reserva a cada usuario.
 -- =========================================
+
+DELIMITER $$
+
+CREATE EVENT ev_recordatorio_reserva
+ON SCHEDULE EVERY 5 MINUTE
+DISABLE -- se deja desactivado por defecto; activar según necesidad
+COMMENT 'Cada 5 min - recordatorio de reservas que empiezan en la proxima hora'
+DO
+BEGIN
+    INSERT INTO NOTIFICACION (id_usuario, destinatario_rol, tipo, asunto, mensaje, fecha_programada)
+    SELECT r.id_usuario,
+           'Usuario',
+           'Recordatorio',
+           'Recordatorio de reserva',
+           CONCAT('Tu reserva en ', e.nombre, ' empieza a las ',
+                  DATE_FORMAT(r.fecha_inicio, '%H:%i'), '.'),
+           NOW()
+    FROM RESERVA r
+    JOIN ESPACIO e ON e.id_espacio = r.id_espacio
+    WHERE r.estado = 'Confirmada'
+      AND r.recordatorio_enviado = FALSE
+      AND r.fecha_inicio BETWEEN NOW() AND NOW() + INTERVAL 1 HOUR;
+
+    UPDATE RESERVA
+    SET recordatorio_enviado = TRUE
+    WHERE estado = 'Confirmada'
+      AND recordatorio_enviado = FALSE
+      AND fecha_inicio BETWEEN NOW() AND NOW() + INTERVAL 1 HOUR;
+END $$
+
 -- =========================================
 -- CONSULTA 08
 -- Eliminar reservas pasadas no asistidas después de 7 días.
@@ -95,6 +154,27 @@ DO
 -- CONSULTA 12
 -- Bloquear servicios adicionales si existen facturas vencidas mayores a 10 días.
 -- =========================================
+
+DELIMITER $$
+
+CREATE EVENT ev_bloquear_servicios_por_deuda
+ON SCHEDULE EVERY 1 DAY
+STARTS CURRENT_DATE + INTERVAL 1 DAY + INTERVAL '00:10' HOUR_MINUTE
+DISABLE -- se deja desactivado por defecto; activar según necesidad
+COMMENT 'Diario 00:10 - marca facturas vencidas y bloquea servicios con deuda de mas de 10 dias'
+DO
+BEGIN
+    DECLARE v_total INT;
+
+    UPDATE FACTURA
+    SET estado = 'Vencida'
+    WHERE estado IN ('Pendiente', 'Parcial')
+      AND saldo_pendiente > 0
+      AND fecha_vencimiento < CURDATE();
+
+    CALL sp_bloquear_servicios(10, v_total);
+END $$
+
 -- =========================================
 -- CONSULTA 13
 -- Generar resumen de facturación mensual automáticamente.
@@ -223,6 +303,20 @@ DELIMITER ;
 -- CONSULTA 17
 -- Enviar reporte diario de asistencias al administrador.
 -- =========================================
+
+DELIMITER $$
+
+CREATE EVENT ev_reporte_diario_asistencias
+ON SCHEDULE EVERY 1 DAY
+STARTS CURRENT_DATE + INTERVAL 1 DAY + INTERVAL '06:30' HOUR_MINUTE
+DISABLE  -- se deja desactivado por defecto; activar según necesidad
+COMMENT 'Diario 06:30 - ingresos, usuarios unicos y hora pico del dia anterior'
+DO
+BEGIN
+    -- El procedimiento guarda el resumen en NOTIFICACION para el administrador
+    CALL sp_reporte_diario_asistencias(CURDATE() - INTERVAL 1 DAY);
+END $$
+
 -- =========================================
 -- CONSULTA 18
 -- Generar reporte semanal de usuarios inactivos (sin accesos).
@@ -257,3 +351,41 @@ DO
 -- CONSULTA 20
 -- Enviar reporte de top 10 usuarios más frecuentes cada mes.
 -- =========================================
+
+DELIMITER $$
+
+CREATE EVENT ev_reporte_top_usuarios
+ON SCHEDULE EVERY 1 MONTH
+STARTS LAST_DAY(CURRENT_DATE) + INTERVAL 1 DAY + INTERVAL '06:45' HOUR_MINUTE
+DISABLE  -- se deja desactivado por defecto; activar según necesidad
+COMMENT 'Dia 1 de cada mes 06:45 - top 10 de clientes con mas asistencias del mes anterior'
+DO
+BEGIN
+    DECLARE v_ini     DATE;
+    DECLARE v_fin     DATE;
+    DECLARE v_detalle TEXT;
+
+    SET SESSION group_concat_max_len = 10000;
+    SET v_ini = DATE_FORMAT(CURDATE() - INTERVAL 1 MONTH, '%Y-%m-01');
+    SET v_fin = LAST_DAY(v_ini);
+
+    SET v_detalle = (SELECT GROUP_CONCAT(CONCAT(t.posicion, '. ', t.nombre, ' (', t.asistencias, ')')
+                                         ORDER BY t.posicion SEPARATOR '; ')
+                     FROM (SELECT ROW_NUMBER() OVER (ORDER BY COUNT(*) DESC, a.id_usuario) AS posicion,
+                                  CONCAT(u.nombre, ' ', u.apellidos)                      AS nombre,
+                                  COUNT(*)                                                AS asistencias
+                           FROM ACCESO a
+                           JOIN USUARIO u ON u.id_usuario = a.id_usuario
+                           WHERE a.resultado = 'Permitido'
+                             AND DATE(a.fecha_hora_entrada) BETWEEN v_ini AND v_fin
+                           GROUP BY a.id_usuario, u.nombre, u.apellidos
+                           ORDER BY asistencias DESC, a.id_usuario
+                           LIMIT 10) t);
+
+    INSERT INTO NOTIFICACION (id_cuenta, destinatario_rol, tipo, asunto, mensaje, fecha_programada)
+    VALUES ((SELECT id_cuenta FROM CUENTA WHERE rol = 'Administrador' ORDER BY id_cuenta LIMIT 1),
+            'Administrador', 'Reporte', 'Top 10 usuarios mas frecuentes',
+            CONCAT('Asistencias de ', DATE_FORMAT(v_ini, '%m/%Y'), ': ',
+                   COALESCE(v_detalle, 'sin asistencias registradas'), '.'),
+            NOW());
+END $$

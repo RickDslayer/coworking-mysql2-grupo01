@@ -82,10 +82,37 @@ DELIMITER ;
 -- FUNCIÓN 04
 -- fn_renovaciones_membresia(usuario_id) -> Número de veces que renovó.
 -- =========================================
+DELIMITER $$
+
+CREATE FUNCTION fn_renovaciones_membresias(p_id_usuario INT)
+RETURNS INT
+READS SQL DATA
+BEGIN
+    DECLARE v_total INT;
+
+    SELECT COUNT(*) INTO v_total
+    FROM membresia
+    WHERE id_usuario = p_id_usuario;
+
+    RETURN GREATEST(v_total - 1, 0);
+END$$
 -- =========================================
 -- FUNCIÓN 05
 -- fn_estado_membresia(usuario_id) -> Devuelve estado (Activa, Suspendida, Vencida).
 -- =========================================
+CREATE FUNCTION fn_estado_membresia(p_id_usuario INT)
+RETURNS VARCHAR(20)
+READS SQL DATA
+BEGIN
+    RETURN COALESCE(
+        (SELECT estado
+         FROM membresia
+         WHERE id_usuario = p_id_usuario
+         ORDER BY FIELD(estado, 'Activa', 'Suspendida', 'Pendiente', 'Vencida'),
+                  fecha_fin DESC
+         LIMIT 1),
+        'Sin membresia');
+END$$
 -- Submódulo: Reservas (Funciones 06 a 10)
 -- =========================================
 -- FUNCIÓN 06
@@ -153,6 +180,16 @@ DELIMITER ;
 -- FUNCIÓN 09
 -- fn_reservas_activas(usuario_id) -> Cantidad de reservas activas.
 -- =========================================
+CREATE FUNCTION fn_reservas_activas(p_id_usuario INT)
+RETURNS INT
+READS SQL DATA
+BEGIN
+    RETURN (SELECT COUNT(*)
+            FROM reserva
+            WHERE id_usuario = p_id_usuario
+              AND estado IN ('Confirmada', 'Pendiente de Confirmacion')
+              AND fecha_fin >= NOW());
+END$$
 -- =========================================
 -- FUNCIÓN 10
 -- fn_duracion_promedio_reservas(espacio_id) -> Promedio de duración de reservas en un espacio.
@@ -242,6 +279,18 @@ DELIMITER ;
 -- FUNCIÓN 14
 -- fn_ingresos_por_reservas() -> Total de ingresos por reservas.
 -- =========================================
+CREATE FUNCTION fn_ingresos_por_reservas()
+RETURNS DECIMAL(12,2)
+READS SQL DATA
+BEGIN
+    RETURN COALESCE(
+        (SELECT SUM(df.monto)
+         FROM detalle_factura AS df
+         INNER JOIN factura AS f ON f.id_factura = df.id_factura
+         WHERE df.id_reserva IS NOT NULL
+           AND f.estado = 'Pagada'),
+        0);
+END$$
 -- =========================================
 -- FUNCIÓN 15
 -- fn_ingresos_por_empresa(empresa_id) -> Ingresos totales por una empresa.
@@ -335,6 +384,17 @@ DELIMITER ;
 -- FUNCIÓN 19
 -- fn_ultima_asistencia(usuario_id) -> Fecha de última asistencia.
 -- =========================================
+CREATE FUNCTION fn_ultima_asistencia(p_id_usuario INT)
+RETURNS DATETIME
+READS SQL DATA
+BEGIN
+    RETURN (SELECT MAX(fecha_hora_entrada)
+            FROM acceso
+            WHERE id_usuario = p_id_usuario
+              AND resultado = 'Permitido');
+END$$
+
+DELIMITER ;
 -- =========================================
 -- FUNCIÓN 20
 -- fn_promedio_asistencias() -> Promedio de asistencias por usuario.

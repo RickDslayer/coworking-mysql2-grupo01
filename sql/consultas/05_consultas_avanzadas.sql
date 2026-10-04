@@ -309,26 +309,121 @@ ORDER BY facturacion_total DESC;
 -- Identificar usuarios que superan en reservas al promedio de su empresa.
 -- =========================================
 
+WITH reservas_usuario AS (
+    SELECT
+        u.id_usuario,
+        u.nombre,
+        u.apellidos,
+        u.id_empresa,
+        COUNT(r.id_reserva) AS total_reservas
+    FROM usuario AS u
+    LEFT JOIN reserva AS r
+        ON r.id_usuario = u.id_usuario
+       AND r.estado <> 'cancelada'
+    WHERE u.id_empresa IS NOT NULL
+    GROUP BY u.id_usuario, u.nombre, u.apellidos, u.id_empresa
+),
+con_promedio AS (
+    SELECT
+        ru.*,
+        AVG(ru.total_reservas) OVER (PARTITION BY ru.id_empresa) AS promedio_empresa
+    FROM reservas_usuario AS ru
+)
+SELECT
+    e.nombre AS empresa,
+    cp.id_usuario,
+    cp.nombre,
+    cp.apellidos,
+    cp.total_reservas,
+    ROUND(cp.promedio_empresa, 2) AS promedio_empresa
+FROM con_promedio AS cp
+INNER JOIN empresa AS e ON e.id_empresa = cp.id_empresa
+WHERE cp.total_reservas > cp.promedio_empresa
+ORDER BY e.nombre, cp.total_reservas DESC;
 
 -- =========================================
 -- CONSULTA 97
 -- Mostrar las 3 empresas con más empleados activos en el coworking.
 -- =========================================
 
+SELECT
+    e.id_empresa,
+    e.nombre AS empresa,
+    COUNT(DISTINCT u.id_usuario) AS empleados_activos
+FROM empresa AS e
+INNER JOIN usuario AS u ON u.id_empresa = e.id_empresa
+INNER JOIN membresia AS m ON m.id_usuario = u.id_usuario
+                         AND m.estado = 'Activa'
+GROUP BY e.id_empresa, e.nombre
+ORDER BY empleados_activos DESC
+LIMIT 3;
 
 -- =========================================
 -- CONSULTA 98
 -- Calcular el porcentaje de usuarios activos frente al total de registrados.
 -- =========================================
 
+SELECT
+    COUNT(DISTINCT u.id_usuario) AS total_usuarios,
+    COUNT(DISTINCT m.id_usuario) AS usuarios_activos,
+    ROUND(100 * COUNT(DISTINCT m.id_usuario) / COUNT(DISTINCT u.id_usuario), 2) AS porcentaje_activos
+FROM usuario AS u
+LEFT JOIN membresia AS m
+    ON m.id_usuario = u.id_usuario
+   AND m.estado = 'Activa';
 
 -- =========================================
 -- CONSULTA 99
 -- Mostrar ingresos mensuales acumulados con función de ventana (OVER).
 -- =========================================
 
+WITH mensual AS (
+    SELECT
+        DATE_FORMAT(fecha_pago, '%Y-%m') AS mes,
+        SUM(monto) AS ingresos_mes
+    FROM pago
+    WHERE estado = 'Pagado'
+    GROUP BY DATE_FORMAT(fecha_pago, '%Y-%m')
+)
+SELECT
+    mes,
+    ingresos_mes,
+    SUM(ingresos_mes) OVER (ORDER BY mes) AS ingresos_acumulados
+FROM mensual
+ORDER BY mes;
 
 -- =========================================
 -- CONSULTA 100
 -- Mostrar usuarios con más de 10 reservas, más de $500 en facturación y membresía activa (con múltiples joins).
 -- =========================================
+
+WITH reservas_usuario AS (
+    SELECT id_usuario, COUNT(*) AS total_reservas
+    FROM reserva
+    WHERE estado <> 'cancelada'
+    GROUP BY id_usuario
+    HAVING COUNT(*) > 10
+),
+facturacion_usuario AS (
+    SELECT id_usuario, SUM(total) AS total_facturado
+    FROM factura
+    WHERE estado <> 'anulada'
+      AND id_usuario IS NOT NULL
+    GROUP BY id_usuario
+    HAVING SUM(total) > 500
+)
+SELECT
+    u.id_usuario,
+    u.nombre,
+    u.apellidos,
+    ru.total_reservas,
+    fu.total_facturado,
+    tm.nombre AS tipo_membresia,
+    m.fecha_fin
+FROM usuario AS u
+INNER JOIN reservas_usuario AS ru ON ru.id_usuario = u.id_usuario
+INNER JOIN facturacion_usuario AS fu ON fu.id_usuario = u.id_usuario
+INNER JOIN membresia AS m ON m.id_usuario = u.id_usuario
+                         AND m.estado = 'Activa'
+INNER JOIN tipo_membresia AS tm ON tm.id_tipo = m.id_tipo
+ORDER BY fu.total_facturado DESC;

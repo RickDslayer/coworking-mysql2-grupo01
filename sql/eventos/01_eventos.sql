@@ -81,10 +81,46 @@ DO
 -- EVENTO 04
 -- Generar reporte semanal de nuevas membresías al administrador.
 -- =========================================
+CREATE EVENT ev_reporte_semanal_membresias
+ON SCHEDULE EVERY 1 WEEK
+STARTS (TIMESTAMP(CURDATE()) + INTERVAL (7 - WEEKDAY(CURDATE())) DAY + INTERVAL 8 HOUR)
+DO
+    INSERT INTO notificacion
+        (id_usuario, id_cuenta, destinatario_rol, tipo, asunto, mensaje, fecha_programada, enviada, fecha_envio)
+    SELECT NULL, c.id_cuenta, 'Administrador', 'Reporte',
+           'Reporte semanal de nuevas membresias',
+           CONCAT('Membresias iniciadas en los ultimos 7 dias: ',
+                  (SELECT COUNT(*)
+                   FROM membresia
+                   WHERE fecha_inicio >= CURDATE() - INTERVAL 7 DAY
+                     AND fecha_inicio <  CURDATE())),
+           NOW(), FALSE, NULL
+    FROM cuenta AS c
+    WHERE c.rol = 'Administrador';
 -- =========================================
 -- EVENTO 05
 -- Notificar membresías suspendidas cada día a recepción.
 -- =========================================
+CREATE EVENT ev_notificar_membresias_suspendidas
+ON SCHEDULE EVERY 1 DAY
+STARTS (TIMESTAMP(CURDATE()) + INTERVAL 1 DAY + INTERVAL 7 HOUR)
+DO
+    INSERT INTO notificacion
+        (id_usuario, id_cuenta, destinatario_rol, tipo, asunto, mensaje, fecha_programada, enviada, fecha_envio)
+    SELECT NULL, c.id_cuenta, 'Recepcionista', 'Alerta',
+           'Membresias suspendidas',
+           CONCAT('Usuarios con membresia suspendida: ', s.lista),
+           NOW(), FALSE, NULL
+    FROM cuenta AS c
+    CROSS JOIN (
+        SELECT GROUP_CONCAT(CONCAT(u.nombre, ' ', u.apellidos) SEPARATOR ', ') AS lista
+        FROM membresia AS m
+        INNER JOIN usuario AS u ON u.id_usuario = m.id_usuario
+        WHERE m.estado = 'Suspendida'
+    ) AS s
+    WHERE c.rol = 'Recepcionista'
+      AND s.lista IS NOT NULL;
+
 -- Submódulo: Reservas (Eventos 06 a 10)
 -- =========================================
 -- EVENTO 06
@@ -151,6 +187,50 @@ DO
 -- EVENTO 09
 -- Generar reporte semanal de ocupación de espacios.
 -- =========================================
+DELIMITER $$
+
+CREATE EVENT ev_reporte_semanal_ocupacion
+ON SCHEDULE EVERY 1 WEEK
+STARTS (TIMESTAMP(CURDATE()) + INTERVAL (7 - WEEKDAY(CURDATE())) DAY + INTERVAL 8 HOUR + INTERVAL 30 MINUTE)
+DO
+BEGIN
+    DECLARE v_resumen TEXT;
+
+    SELECT GROUP_CONCAT(
+               CONCAT(te.nombre, ': ',
+                      ROUND(100 * COALESCE(r.horas_reservadas, 0) / h.horas_disponibles, 1), '%')
+               SEPARATOR ' | ')
+    INTO v_resumen
+    FROM tipo_espacio AS te
+    INNER JOIN (
+        SELECT e.id_tipo_espacio,
+               SUM(TIME_TO_SEC(TIMEDIFF(he.hora_cierre, he.hora_apertura))) / 3600 AS horas_disponibles
+        FROM espacio AS e
+        INNER JOIN horario_espacio AS he ON he.id_espacio = e.id_espacio
+        GROUP BY e.id_tipo_espacio
+    ) AS h ON h.id_tipo_espacio = te.id_tipo_espacio
+    LEFT JOIN (
+        SELECT e.id_tipo_espacio,
+               SUM(TIMESTAMPDIFF(MINUTE, rs.fecha_inicio, rs.fecha_fin)) / 60 AS horas_reservadas
+        FROM reserva AS rs
+        INNER JOIN espacio AS e ON e.id_espacio = rs.id_espacio
+        WHERE rs.estado <> 'Cancelada'
+          AND rs.fecha_inicio >= CURDATE() - INTERVAL 7 DAY
+          AND rs.fecha_inicio <  CURDATE()
+        GROUP BY e.id_tipo_espacio
+    ) AS r ON r.id_tipo_espacio = te.id_tipo_espacio;
+
+    INSERT INTO notificacion
+        (id_usuario, id_cuenta, destinatario_rol, tipo, asunto, mensaje, fecha_programada, enviada, fecha_envio)
+    SELECT NULL, c.id_cuenta, 'Administrador', 'Reporte',
+           'Reporte semanal de ocupacion de espacios',
+           CONCAT('Ocupacion de los ultimos 7 dias - ', v_resumen),
+           NOW(), FALSE, NULL
+    FROM cuenta AS c
+    WHERE c.rol = 'Administrador';
+END$$
+
+DELIMITER ;
 -- =========================================
 -- EVENTO 10
 -- Liberar reservas bloqueadas si no se inicia en los primeros 15 minutos.
@@ -253,6 +333,18 @@ DELIMITER ;
 -- EVENTO 14
 -- Aplicar recargos automáticos a facturas vencidas después de 15 días.
 -- =========================================
+CREATE EVENT ev_recargo_facturas_vencidas
+ON SCHEDULE EVERY 1 DAY
+STARTS (TIMESTAMP(CURDATE()) + INTERVAL 1 DAY + INTERVAL 1 HOUR)
+DO
+    UPDATE factura
+    SET recargo_aplicado = ROUND(total * 0.10, 2),
+        saldo_pendiente  = saldo_pendiente + ROUND(total * 0.10, 2),
+        estado           = 'Vencida'
+    WHERE estado IN ('Pendiente', 'Parcial', 'Vencida')
+      AND saldo_pendiente > 0
+      AND recargo_aplicado = 0
+      AND fecha_vencimiento < CURDATE() - INTERVAL 15 DAY;
 -- =========================================
 -- EVENTO 15
 -- Enviar al contador un reporte de ingresos acumulados cada fin de mes.
@@ -368,6 +460,28 @@ DO
 -- EVENTO 19
 -- Alertar accesos fuera de horario laboral cada día.
 -- =========================================
+CREATE EVENT ev_alerta_accesos_fuera_horario
+ON SCHEDULE EVERY 1 DAY
+STARTS (TIMESTAMP(CURDATE()) + INTERVAL 1 DAY + INTERVAL 6 HOUR)
+DO
+    INSERT INTO notificacion
+        (id_usuario, id_cuenta, destinatario_rol, tipo, asunto, mensaje, fecha_programada, enviada, fecha_envio)
+    SELECT NULL, c.id_cuenta, 'Administrador', 'Alerta',
+           'Accesos fuera de horario laboral',
+           CONCAT(a.total, ' acceso(s) fuera de horario ayer. Usuarios: ', COALESCE(a.usuarios, 'sin identificar')),
+           NOW(), FALSE, NULL
+    FROM cuenta AS c
+    CROSS JOIN (
+        SELECT COUNT(*) AS total,
+               GROUP_CONCAT(DISTINCT id_usuario) AS usuarios
+        FROM acceso
+        WHERE fecha_hora_entrada >= CURDATE() - INTERVAL 1 DAY
+          AND fecha_hora_entrada <  CURDATE()
+          AND (TIME(fecha_hora_entrada) < '07:00:00'
+               OR TIME(fecha_hora_entrada) > '21:00:00')
+    ) AS a
+    WHERE c.rol = 'Administrador'
+      AND a.total > 0;
 -- =========================================
 -- EVENTO 20
 -- Enviar reporte de top 10 usuarios más frecuentes cada mes.

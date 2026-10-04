@@ -421,6 +421,38 @@ DELIMITER ;
 -- Registrar acceso de usuario (entrada) -> Valida membresía o reserva activa y registra
 -- entrada en logs.
 -- =========================================
+
+CREATE PROCEDURE sp_registrar_entrada(
+    IN  p_codigo    VARCHAR(100),
+    IN  p_metodo    VARCHAR(4),
+    OUT p_resultado VARCHAR(20),
+    OUT p_motivo    VARCHAR(100))
+BEGIN
+    DECLARE v_id_acceso INT;
+    DECLARE v_usuario   INT;
+    DECLARE v_entrada   DATETIME;
+
+    INSERT INTO ACCESO (metodo, codigo_leido, fecha_hora_entrada, resultado)
+    VALUES (p_metodo, p_codigo, NOW(), 'Permitido');
+    SET v_id_acceso = LAST_INSERT_ID();
+
+    SET p_resultado = (SELECT resultado      FROM ACCESO WHERE id_acceso = v_id_acceso);
+    SET p_motivo    = (SELECT motivo_rechazo FROM ACCESO WHERE id_acceso = v_id_acceso);
+    SET v_usuario   = (SELECT id_usuario     FROM ACCESO WHERE id_acceso = v_id_acceso);
+    SET v_entrada   = (SELECT fecha_hora_entrada FROM ACCESO WHERE id_acceso = v_id_acceso);
+
+    IF p_resultado = 'Permitido' THEN
+        UPDATE ACCESO
+        SET fecha_hora_salida = v_entrada,
+            salida_automatica = TRUE
+        WHERE id_usuario = v_usuario
+          AND resultado = 'Permitido'
+          AND fecha_hora_salida IS NULL
+          AND id_acceso <> v_id_acceso
+          AND fecha_hora_entrada < v_entrada;
+    END IF;
+END //
+
 -- =========================================
 -- PROCEDIMIENTO 15
 -- Registrar salida de usuario -> Completa la asistencia del usuario y marca hora de salida.

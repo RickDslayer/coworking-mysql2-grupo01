@@ -14,6 +14,10 @@ Ejecutar previamente DDL y DML.
 
 USE coworking_db;
 
+-- Fecha de corte de los datos de prueba (las consultas de "hoy" la usan).
+-- En producción: SET @hoy = CURDATE();
+SET @hoy = DATE('2026-09-30');
+
 -- CONSULTA 81
 -- Mostrar los usuarios con el mayor gasto acumulado (subconsulta con SUM).
 -- =========================================
@@ -101,8 +105,8 @@ SELECT u.id_usuario,
        CONCAT(u.nombre, ' ', u.apellidos) AS nombre_completo,
        COUNT(*) AS servicios_contratados,
        COUNT(DISTINCT sc.id_servicio) AS servicios_distintos
-FROM SERVICIO_CONTRATADO sc
-JOIN USUARIO u ON u.id_usuario = sc.id_usuario
+FROM servicio_contratado sc
+JOIN usuario u ON u.id_usuario = sc.id_usuario
 GROUP BY u.id_usuario, nombre_completo
 ORDER BY servicios_contratados DESC
 LIMIT 5;
@@ -116,15 +120,15 @@ SELECT r.id_reserva,
        e.nombre AS espacio,
        f.id_factura,
        f.total
-FROM RESERVA r
-JOIN ESPACIO e ON e.id_espacio = r.id_espacio
-JOIN DETALLE_FACTURA d ON d.id_reserva = r.id_reserva
-JOIN FACTURA f ON f.id_factura = d.id_factura
+FROM reserva r
+JOIN espacio e ON e.id_espacio = r.id_espacio
+JOIN detalle_factura d ON d.id_reserva = r.id_reserva
+JOIN factura f ON f.id_factura = d.id_factura
 WHERE f.estado <> 'Anulada'
   AND f.total > (SELECT AVG(f2.total)
-                 FROM FACTURA f2
+                 FROM factura f2
                  WHERE f2.estado <> 'Anulada'
-                   AND EXISTS (SELECT 1 FROM DETALLE_FACTURA d2
+                   AND EXISTS (SELECT 1 FROM detalle_factura d2
                                WHERE d2.id_factura = f2.id_factura AND d2.id_reserva IS NOT NULL))
 ORDER BY f.total DESC;
 
@@ -142,14 +146,14 @@ disponible AS (
     SELECT DATE_FORMAT(d.dia, '%Y-%m') AS mes,
            SUM(TIMESTAMPDIFF(MINUTE, h.hora_apertura, h.hora_cierre)) / 60 AS horas_disponibles
     FROM dias d
-    JOIN HORARIO_ESPACIO h ON h.dia_semana = WEEKDAY(d.dia) + 1
-    JOIN ESPACIO e         ON e.id_espacio = h.id_espacio AND e.estado = 'Disponible'
+    JOIN horario_espacio h ON h.dia_semana = WEEKDAY(d.dia) + 1
+    JOIN espacio e         ON e.id_espacio = h.id_espacio AND e.estado = 'Disponible'
     GROUP BY mes
 ),
 ocupado AS (
     SELECT DATE_FORMAT(fecha_inicio, '%Y-%m') AS mes,
            SUM(TIMESTAMPDIFF(MINUTE, fecha_inicio, fecha_fin)) / 60 AS horas_reservadas
-    FROM RESERVA
+    FROM reserva
     WHERE estado IN ('Confirmada', 'Finalizada', 'No Show')
       AND DATE(fecha_inicio) BETWEEN @hoy - INTERVAL 364 DAY AND @hoy
     GROUP BY mes
@@ -170,14 +174,14 @@ ORDER BY d.mes;
 SELECT u.id_usuario,
        CONCAT(u.nombre, ' ', u.apellidos) AS nombre_completo,
        ROUND(h.horas, 1) AS horas_reservadas
-FROM USUARIO u
+FROM usuario u
 JOIN (SELECT id_usuario, SUM(TIMESTAMPDIFF(MINUTE, fecha_inicio, fecha_fin)) / 60 AS horas
-      FROM RESERVA
+      FROM reserva
       WHERE estado <> 'Cancelada'
       GROUP BY id_usuario) h ON h.id_usuario = u.id_usuario
 WHERE h.horas > (SELECT AVG(horas) FROM (
                      SELECT SUM(TIMESTAMPDIFF(MINUTE, fecha_inicio, fecha_fin)) / 60 AS horas
-                     FROM RESERVA
+                     FROM reserva
                      WHERE estado <> 'Cancelada'
                      GROUP BY id_usuario) t)
 ORDER BY horas_reservadas DESC;
@@ -192,9 +196,9 @@ SELECT e.id_espacio,
        te.nombre AS tipo_espacio,
        COUNT(*) AS reservas,
        ROUND(SUM(TIMESTAMPDIFF(MINUTE, r.fecha_inicio, r.fecha_fin)) / 60, 1) AS horas_usadas
-FROM RESERVA r
-JOIN ESPACIO e ON e.id_espacio = r.id_espacio
-JOIN TIPO_ESPACIO te ON te.id_tipo_espacio = e.id_tipo_espacio
+FROM reserva r
+JOIN espacio e ON e.id_espacio = r.id_espacio
+JOIN tipo_espacio te ON te.id_tipo_espacio = e.id_tipo_espacio
 WHERE te.nombre <> 'Escritorio flexible'
   AND r.estado IN ('Confirmada', 'Finalizada')
   AND r.fecha_inicio BETWEEN @hoy - INTERVAL 3 MONTH AND @hoy + INTERVAL 1 DAY

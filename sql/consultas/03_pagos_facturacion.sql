@@ -12,6 +12,10 @@ Ejecutar previamente DDL y DML.
 
 USE coworking_db;
 
+-- Fecha de corte de los datos de prueba (las consultas de "hoy" la usan).
+-- En producción: SET @hoy = CURDATE();
+SET @hoy = DATE('2026-09-30');
+
 -- CONSULTA 41
 -- Listar todos los pagos realizados con método tarjeta.
 -- =========================================
@@ -44,7 +48,7 @@ WHERE p.estado = 'Pendiente';
 SELECT id_pago, id_factura, monto, fecha_pago, estado
 FROM pago
 WHERE estado = 'Cancelado'
-  AND fecha_pago >= DATE_SUB(CURDATE(), INTERVAL 3 MONTH);
+  AND fecha_pago >= DATE_SUB(@hoy, INTERVAL 3 MONTH);
 
 
 -- =========================================
@@ -76,10 +80,10 @@ WHERE d.id_reserva IS NOT NULL;
 -- =========================================
 
 SELECT ROUND(COALESCE(SUM(p.monto * dm.monto_membresias / f.total), 0), 2) AS ingresos_membresias_ultimo_mes
-FROM PAGO p
-JOIN FACTURA f ON f.id_factura = p.id_factura
+FROM pago p
+JOIN factura f ON f.id_factura = p.id_factura
 JOIN (SELECT id_factura, SUM(monto) AS monto_membresias
-      FROM DETALLE_FACTURA
+      FROM detalle_factura
       WHERE id_membresia IS NOT NULL
       GROUP BY id_factura) dm ON dm.id_factura = f.id_factura
 WHERE p.estado = 'Pagado'
@@ -92,10 +96,10 @@ WHERE p.estado = 'Pagado'
 -- =========================================
 
 SELECT ROUND(COALESCE(SUM(p.monto * dr.monto_reservas / f.total), 0), 2) AS ingresos_reservas_ultimo_mes
-FROM PAGO p
-JOIN FACTURA f ON f.id_factura = p.id_factura
+FROM pago p
+JOIN factura f ON f.id_factura = p.id_factura
 JOIN (SELECT id_factura, SUM(monto) AS monto_reservas
-      FROM DETALLE_FACTURA
+      FROM detalle_factura
       WHERE id_reserva IS NOT NULL
       GROUP BY id_factura) dr ON dr.id_factura = f.id_factura
 WHERE p.estado = 'Pagado'
@@ -109,12 +113,12 @@ WHERE p.estado = 'Pagado'
 
 SELECT s.nombre AS servicio,
        ROUND(SUM(d.monto * LEAST(pf.pagado, f.total) / f.total), 2) AS ingresos
-FROM DETALLE_FACTURA d
-JOIN FACTURA f ON f.id_factura = d.id_factura
-JOIN SERVICIO_CONTRATADO sc ON sc.id_contratado = d.id_contratado
-JOIN SERVICIO s ON s.id_servicio = sc.id_servicio
+FROM detalle_factura d
+JOIN factura f ON f.id_factura = d.id_factura
+JOIN servicio_contratado sc ON sc.id_contratado = d.id_contratado
+JOIN servicio s ON s.id_servicio = sc.id_servicio
 JOIN (SELECT id_factura, SUM(monto) AS pagado
-      FROM PAGO WHERE estado = 'Pagado'
+      FROM pago WHERE estado = 'Pagado'
       GROUP BY id_factura) pf ON pf.id_factura = f.id_factura
 WHERE f.total > 0
 GROUP BY s.nombre WITH ROLLUP;
@@ -126,11 +130,11 @@ GROUP BY s.nombre WITH ROLLUP;
 
 SELECT u.id_usuario,
        CONCAT(u.nombre, ' ', u.apellidos) AS nombre_completo
-FROM USUARIO u
+FROM usuario u
 WHERE NOT EXISTS (SELECT 1
-                  FROM PAGO p
-                  JOIN FACTURA f ON f.id_factura = p.id_factura
-                  JOIN METODO_PAGO mp ON mp.id_metodo = p.id_metodo
+                  FROM pago p
+                  JOIN factura f ON f.id_factura = p.id_factura
+                  JOIN metodo_pago mp ON mp.id_metodo = p.id_metodo
                   WHERE f.id_usuario = u.id_usuario
                     AND mp.nombre = 'PayPal'
                     AND p.estado = 'Pagado')
@@ -143,8 +147,8 @@ ORDER BY u.id_usuario;
 
 SELECT ROUND(AVG(total_pagado), 2) AS gasto_promedio_por_usuario
 FROM (SELECT f.id_usuario, SUM(p.monto) AS total_pagado
-      FROM PAGO p
-      JOIN FACTURA f ON f.id_factura = p.id_factura
+      FROM pago p
+      JOIN factura f ON f.id_factura = p.id_factura
       WHERE p.estado = 'Pagado' AND f.id_usuario IS NOT NULL
       GROUP BY f.id_usuario) t;
 
@@ -194,9 +198,9 @@ ORDER BY dias_de_retraso DESC;
 -- Calcular el total recaudado en el año actual.
 -- =========================================
 
-SELECT YEAR(NOW()) AS AÑO, SUM(fac.total) AS total_recaudado
+SELECT YEAR(@hoy) AS AÑO, SUM(fac.total) AS total_recaudado
 FROM factura AS fac
-WHERE YEAR(fac.fecha_emision) = YEAR(NOW()) AND estado = 'Pagada';
+WHERE YEAR(fac.fecha_emision) = YEAR(@hoy) AND estado = 'Pagada';
 
 -- =========================================
 -- CONSULTA 55

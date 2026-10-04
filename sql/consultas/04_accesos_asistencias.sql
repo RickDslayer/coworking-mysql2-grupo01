@@ -10,12 +10,13 @@ Requisitos:
 Ejecutar previamente DDL y DML.
 */
 
-<<<<<<< HEAD
 USE coworking_db;
 
-=======
+-- Fecha de corte de los datos de prueba (las consultas de "hoy" la usan).
+-- En producción: SET @hoy = CURDATE();
+SET @hoy = DATE('2026-09-30');
+
 -- =========================================
->>>>>>> 8532f7acf64ca2ddc3f96eb25318cec779bce281
 -- CONSULTA 61
 -- Listar todos los accesos registrados hoy.
 -- =========================================
@@ -24,7 +25,7 @@ SELECT a.id_acceso, u.nombre, u.apellidos, a.metodo,
        a.fecha_hora_entrada, a.fecha_hora_salida, a.resultado
 FROM acceso a
 LEFT JOIN usuario u ON a.id_usuario = u.id_usuario
-WHERE DATE(a.fecha_hora_entrada) = CURDATE();
+WHERE DATE(a.fecha_hora_entrada) = @hoy;
 
 
 -- =========================================
@@ -37,8 +38,8 @@ SELECT u.id_usuario, u.nombre, u.apellidos, COUNT(*) AS asistencias
 FROM acceso a
 JOIN usuario u ON a.id_usuario = u.id_usuario
 WHERE a.resultado = 'Permitido'
-  AND MONTH(a.fecha_hora_entrada) = MONTH(CURDATE())
-  AND YEAR(a.fecha_hora_entrada) = YEAR(CURDATE())
+  AND MONTH(a.fecha_hora_entrada) = MONTH(@hoy)
+  AND YEAR(a.fecha_hora_entrada) = YEAR(@hoy)
 GROUP BY u.id_usuario, u.nombre, u.apellidos
 HAVING COUNT(*) > 20;
 
@@ -55,7 +56,7 @@ WHERE id_usuario NOT IN (
     FROM acceso
     WHERE resultado = 'Permitido'
       AND id_usuario IS NOT NULL
-      AND fecha_hora_entrada >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)
+      AND fecha_hora_entrada >= DATE_SUB(@hoy, INTERVAL 7 DAY)
 );
 
 
@@ -113,11 +114,11 @@ SELECT a.id_acceso,
        t.hora_acceso_inicio,
        t.hora_acceso_fin,
        a.resultado
-FROM ACCESO a
-JOIN USUARIO u ON u.id_usuario = a.id_usuario
-JOIN MEMBRESIA m ON m.id_usuario = a.id_usuario
+FROM acceso a
+JOIN usuario u ON u.id_usuario = a.id_usuario
+JOIN membresia m ON m.id_usuario = a.id_usuario
                      AND DATE(a.fecha_hora_entrada) BETWEEN m.fecha_inicio AND m.fecha_fin
-JOIN TIPO_MEMBRESIA t ON t.id_tipo = m.id_tipo
+JOIN tipo_membresia t ON t.id_tipo = m.id_tipo
 WHERE TIME(a.fecha_hora_entrada) NOT BETWEEN t.hora_acceso_inicio AND t.hora_acceso_fin
 ORDER BY a.fecha_hora_entrada;
 
@@ -130,8 +131,8 @@ SELECT u.id_usuario,
        CONCAT(u.nombre, ' ', u.apellidos) AS nombre_completo,
        a.fecha_hora_entrada AS intento,
        a.motivo_rechazo
-FROM ACCESO a
-JOIN USUARIO u ON u.id_usuario = a.id_usuario
+FROM acceso a
+JOIN usuario u ON u.id_usuario = a.id_usuario
 WHERE a.resultado = 'Rechazado'
   AND a.motivo_rechazo IN ('Membresia vencida', 'Membresia suspendida', 'Membresia inactiva')
 ORDER BY a.fecha_hora_entrada DESC;
@@ -144,8 +145,8 @@ ORDER BY a.fecha_hora_entrada DESC;
 SELECT u.id_usuario,
        CONCAT(u.nombre, ' ', u.apellidos) AS nombre_completo,
        COUNT(*) AS asistencias
-FROM ACCESO a
-JOIN USUARIO u ON u.id_usuario = a.id_usuario
+FROM acceso a
+JOIN usuario u ON u.id_usuario = a.id_usuario
 WHERE a.resultado = 'Permitido'
 GROUP BY u.id_usuario, nombre_completo
 HAVING SUM(WEEKDAY(a.fecha_hora_entrada) < 5) = 0;
@@ -159,8 +160,8 @@ SELECT u.id_usuario,
        CONCAT(u.nombre, ' ', u.apellidos) AS nombre_completo,
        DATE(a.fecha_hora_entrada) AS fecha,
        COUNT(*) AS ingresos
-FROM ACCESO a
-JOIN USUARIO u ON u.id_usuario = a.id_usuario
+FROM acceso a
+JOIN usuario u ON u.id_usuario = a.id_usuario
 WHERE a.resultado = 'Permitido'
 GROUP BY u.id_usuario, nombre_completo, fecha
 HAVING COUNT(*) > 2;
@@ -174,7 +175,7 @@ SELECT DATE(fecha_hora_entrada) AS fecha,
        COUNT(*) AS total_accesos,
        SUM(resultado = 'Permitido') AS permitidos,
        SUM(resultado = 'Rechazado') AS rechazados
-FROM ACCESO
+FROM acceso
 WHERE DATE(fecha_hora_entrada) BETWEEN @hoy - INTERVAL 1 MONTH AND @hoy
 GROUP BY fecha
 ORDER BY fecha;
@@ -201,9 +202,6 @@ ORDER BY usu.id_usuario;
 -- Mostrar los días con más concurrencia en el coworking.
 -- =========================================
 
-<<<<<<< HEAD
-
-=======
 SELECT
     DATE(acc.fecha_hora_entrada) AS dia,
     COUNT(*) AS total_ingresos,
@@ -213,7 +211,6 @@ WHERE acc.resultado = 'Permitido'
 GROUP BY DATE(acc.fecha_hora_entrada)
 ORDER BY total_ingresos DESC
 LIMIT 10;
->>>>>>> 8532f7acf64ca2ddc3f96eb25318cec779bce281
 
 -- =========================================
 -- CONSULTA 73

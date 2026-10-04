@@ -1,7 +1,7 @@
 /*
 Proyecto: Gestión de Coworking
 Grupo: 01
-Módulo: Procedimientos Almacenados y Control de Acceso / Roles
+Módulo: Control de Acceso / Roles
 Archivo: 02_permisos.sql
 Descripción:
 Permisos de cada uno de los 5 roles sobre tablas, vistas, funciones
@@ -93,12 +93,12 @@ GRANT EXECUTE ON PROCEDURE coworking_db.sp_registrar_membresia        TO 'rol_re
 GRANT EXECUTE ON PROCEDURE coworking_db.sp_renovar_membresia          TO 'rol_recepcionista';
 GRANT EXECUTE ON PROCEDURE coworking_db.sp_verificar_disponibilidad   TO 'rol_recepcionista';
 GRANT EXECUTE ON PROCEDURE coworking_db.sp_crear_reserva              TO 'rol_recepcionista';
-GRANT EXECUTE ON PROCEDURE coworking_db.sp_confirmar_reserva          TO 'rol_recepcionista';
+GRANT EXECUTE ON PROCEDURE coworking_db.sp_confirmar_reserva_con_pago TO 'rol_recepcionista';
 GRANT EXECUTE ON PROCEDURE coworking_db.sp_cancelar_reserva           TO 'rol_recepcionista';
 GRANT EXECUTE ON PROCEDURE coworking_db.sp_cancelar_reservas_futuras  TO 'rol_recepcionista';
 GRANT EXECUTE ON PROCEDURE coworking_db.sp_registrar_entrada          TO 'rol_recepcionista';
 GRANT EXECUTE ON PROCEDURE coworking_db.sp_registrar_salida           TO 'rol_recepcionista';
-GRANT EXECUTE ON PROCEDURE coworking_db.sp_reporte_diario_asistencias TO 'rol_recepcionista';
+GRANT EXECUTE ON PROCEDURE coworking_db.sp_reporte_asistencias_diario TO 'rol_recepcionista';
 
 -- =========================================
 -- ROL 03
@@ -471,7 +471,7 @@ GRANT EXECUTE ON FUNCTION coworking_db.fn_renovaciones_membresia     TO 'rol_con
 -- ---------- Procedimientos (facturación, recargos, bloqueos y reportes) ----------
 GRANT EXECUTE ON PROCEDURE coworking_db.sp_factura_membresia          TO 'rol_contador';
 GRANT EXECUTE ON PROCEDURE coworking_db.sp_factura_consolidada        TO 'rol_contador';
-GRANT EXECUTE ON PROCEDURE coworking_db.sp_aplicar_recargos           TO 'rol_contador';
+GRANT EXECUTE ON PROCEDURE coworking_db.sp_aplicar_recargos_vencidas  TO 'rol_contador';
 GRANT EXECUTE ON PROCEDURE coworking_db.sp_bloquear_servicios         TO 'rol_contador';
 GRANT EXECUTE ON PROCEDURE coworking_db.sp_reporte_ingresos_mensual   TO 'rol_contador';
 -- Solo el Administrador ejecuta los procesos masivos que usan los eventos:

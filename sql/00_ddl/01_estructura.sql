@@ -1,10 +1,14 @@
 /*
 Proyecto: Gestión de Coworking
 Grupo: 01
-Módulo: CREACION DE BASE DE DATOS
+Módulo: Creación de la Base de Datos (DDL)
 Archivo: 01_estructura.sql
-Descripción: Crear la base de datos y todas sus tablas (23)
-Ejecutar previamente DDL y DML.
+Descripción:
+Crea la base de datos coworking_db y sus 24 tablas, con llaves
+primarias, llaves foráneas, restricciones CHECK y valores por defecto.
+Requisitos:
+Ninguno: es el primer script. Ejecutar como root (borra y vuelve a
+crear la base de datos).
 */
 -- =====================================================================
 --  MÓDULO 0: CREACION DE BASE DE DATOS

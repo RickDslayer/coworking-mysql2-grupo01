@@ -4,10 +4,10 @@ Grupo: 01
 Módulo: Triggers - Membresías
 Archivo: 01_triggers_membresias.sql
 Descripción:
-Triggers 01 a 06 del módulo de Membresías.
+Triggers 01 a 05 del módulo de Membresías.
 
 Requisitos:
-Ejecutar previamente DDL y DML.
+Ejecutar previamente DDL, DML y funciones.
 */
 
 
@@ -21,6 +21,8 @@ Ejecutar previamente DDL y DML.
 -- TRIGGER 02
 -- Actualizar estado de membresía a “Activa” cuando se realiza un pago exitoso.
 -- =========================================
+
+DROP TRIGGER IF EXISTS trg_factura_au_activar_membresia;
 
 DELIMITER $$
 
@@ -37,6 +39,8 @@ BEGIN
           AND m.fecha_fin >= CURDATE();
     END IF;
 END $$
+
+DELIMITER ;
 
 -- =========================================
 -- TRIGGER 03

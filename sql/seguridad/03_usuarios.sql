@@ -1,7 +1,7 @@
 /*
 Proyecto: Gestión de Coworking
 Grupo: 01
-Módulo: Procedimientos Almacenados y Control de Acceso / Roles
+Módulo: Control de Acceso / Roles
 Archivo: 03_usuarios.sql
 Descripción:
 Usuarios MySQL de ejemplo para cada uno de los 5 roles.

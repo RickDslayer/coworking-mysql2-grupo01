@@ -2,28 +2,30 @@
 Proyecto: Gestión de Coworking
 Grupo: 01
 Módulo: Funciones SQL
-Archivo: 05_funciones.sql
+Archivo: 01_funciones.sql
 Descripción:
-Estructura y comentarios organizativos para la implementación de las 20 Funciones SQL del
-proyecto y las secciones correspondientes hasta completar las 100 consultas.
+Implementación de las 20 Funciones SQL del proyecto, organizadas por
+submódulo (Membresías, Reservas, Pagos y Facturación, Accesos).
 Requisitos:
-Ejecutar previamente DDL y DML.
+Ejecutar previamente 01_estructura.sql y 01_datos_iniciales.sql.
 */
 
 USE coworking_db;
 
---============================================================================
--- SECCIÓN: FUNCIONES SQL (Consultas 01 a 20)
---============================================================================
+-- ============================================================================
+-- SECCIÓN: FUNCIONES SQL (Funciones 01 a 20)
+-- ============================================================================
 -- Submódulo: Membresías (Funciones 01 a 05)
 -- =========================================
--- CONSULTA 01
+-- FUNCIÓN 01
 -- fn_membresia_activa(usuario_id) -> Devuelve TRUE si el usuario tiene membresía activa.
 -- =========================================
 -- =========================================
--- CONSULTA 02
+-- FUNCIÓN 02
 -- fn_dias_restantes_membresia(usuario_id) -> Días restantes de vigencia.
 -- =========================================
+
+DROP FUNCTION IF EXISTS fn_dias_restantes_membresia;
 
 DELIMITER $$
 
@@ -44,8 +46,10 @@ BEGIN
     RETURN GREATEST(DATEDIFF(v_fecha_fin, CURDATE()), 0);
 END $$
 
+DELIMITER ;
+
 -- =========================================
--- CONSULTA 03
+-- FUNCIÓN 03
 -- fn_tipo_membresia(usuario_id) -> Retorna el tipo actual de membresía.
 -- =========================================
 
@@ -75,22 +79,24 @@ END$$
 DELIMITER ;
 
 -- =========================================
--- CONSULTA 04
+-- FUNCIÓN 04
 -- fn_renovaciones_membresia(usuario_id) -> Número de veces que renovó.
 -- =========================================
 -- =========================================
--- CONSULTA 05
+-- FUNCIÓN 05
 -- fn_estado_membresia(usuario_id) -> Devuelve estado (Activa, Suspendida, Vencida).
 -- =========================================
 -- Submódulo: Reservas (Funciones 06 a 10)
 -- =========================================
--- CONSULTA 06
+-- FUNCIÓN 06
 -- fn_total_reservas(usuario_id) -> Cantidad total de reservas del usuario.
 -- =========================================
 -- =========================================
--- CONSULTA 07
+-- FUNCIÓN 07
 -- fn_horas_reservadas(usuario_id, mes, año) -> Total de horas reservadas en un período.
 -- =========================================
+
+DROP FUNCTION IF EXISTS fn_horas_reservadas;
 
 DELIMITER $$
 
@@ -111,8 +117,10 @@ BEGIN
     RETURN v_horas;
 END $$
 
+DELIMITER ;
+
 -- =========================================
--- CONSULTA 08
+-- FUNCIÓN 08
 -- fn_espacio_mas_reservado() -> Retorna el ID del espacio más usado.
 -- =========================================
 
@@ -141,11 +149,12 @@ END$$
 DELIMITER ;
 
 
--- =========================================-- CONSULTA 09
+-- =========================================
+-- FUNCIÓN 09
 -- fn_reservas_activas(usuario_id) -> Cantidad de reservas activas.
 -- =========================================
 -- =========================================
--- CONSULTA 10
+-- FUNCIÓN 10
 -- fn_duracion_promedio_reservas(espacio_id) -> Promedio de duración de reservas en un espacio.
 -- =========================================
 
@@ -172,13 +181,15 @@ DELIMITER ;
 
 -- Submódulo: Pagos y Facturación (Funciones 11 a 15)
 -- =========================================
--- CONSULTA 11
+-- FUNCIÓN 11
 -- fn_total_pagado(usuario_id) -> Total pagado por un usuario.
 -- =========================================
 -- =========================================
--- CONSULTA 12
+-- FUNCIÓN 12
 -- fn_ingresos_por_mes(mes, año) -> Ingresos totales en un mes.
 -- =========================================
+
+DROP FUNCTION IF EXISTS fn_ingresos_por_mes;
 
 DELIMITER $$
 
@@ -197,8 +208,10 @@ BEGIN
     RETURN v_total;
 END $$
 
+DELIMITER ;
+
 -- =========================================
--- CONSULTA 13
+-- FUNCIÓN 13
 -- fn_ingresos_por_membresias() -> Total de ingresos por membresías.
 -- =========================================
 
@@ -226,13 +239,15 @@ END$$
 DELIMITER ;
 
 -- =========================================
--- CONSULTA 14
+-- FUNCIÓN 14
 -- fn_ingresos_por_reservas() -> Total de ingresos por reservas.
 -- =========================================
 -- =========================================
--- CONSULTA 15
+-- FUNCIÓN 15
 -- fn_ingresos_por_empresa(empresa_id) -> Ingresos totales por una empresa.
 -- =========================================
+
+DROP FUNCTION IF EXISTS fn_ingresos_por_empresa;
 
 DELIMITER $$
 
@@ -252,15 +267,19 @@ BEGIN
     RETURN v_total;
 END $$
 
+DELIMITER ;
+
 -- Submódulo: Accesos y Asistencias (Funciones 16 a 20)
 -- =========================================
--- CONSULTA 16
+-- FUNCIÓN 16
 -- fn_total_asistencias(usuario_id) -> Cantidad total de asistencias del usuario.
 -- =========================================
 -- =========================================
--- CONSULTA 17
+-- FUNCIÓN 17
 -- fn_asistencias_mes(usuario_id, mes, año) -> Total de asistencias en un mes.
 -- =========================================
+
+DROP FUNCTION IF EXISTS fn_asistencias_mes;
 
 DELIMITER $$
 
@@ -280,8 +299,10 @@ BEGIN
     RETURN v_total;
 END $$
 
+DELIMITER ;
+
 -- =========================================
--- CONSULTA 18
+-- FUNCIÓN 18
 -- fn_top_usuario_asistencias() -> Usuario con más accesos.
 -- =========================================
 
@@ -311,10 +332,10 @@ DELIMITER ;
 
 
 -- =========================================
--- CONSULTA 19
+-- FUNCIÓN 19
 -- fn_ultima_asistencia(usuario_id) -> Fecha de última asistencia.
 -- =========================================
 -- =========================================
--- CONSULTA 20
+-- FUNCIÓN 20
 -- fn_promedio_asistencias() -> Promedio de asistencias por usuario.
 -- =========================================

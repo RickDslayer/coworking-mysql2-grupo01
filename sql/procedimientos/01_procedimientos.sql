@@ -1,28 +1,31 @@
 /*
 Proyecto: Gestión de Coworking
 Grupo: 01
-Módulo: Procedimientos Almacenados y Control de Acceso / Roles
-Archivo: 06_procedimientos_
+Módulo: Procedimientos Almacenados
+Archivo: 01_procedimientos.sql
 Descripción:
-Estructura y comentarios organizativos para los 20 Procedimientos Almacenados 
+Implementación de los 20 Procedimientos Almacenados del proyecto,
+organizados por submódulo.
 Requisitos:
-Ejecutar previamente DDL y DML.
+Ejecutar previamente DDL, DML, funciones y triggers.
 */
 USE coworking_db;
---============================================================================
+-- ============================================================================
 -- SECCIÓN: PROCEDIMIENTOS ALMACENADOS (Procedimientos 01 a 20)
---============================================================================
+-- ============================================================================
 -- Submódulo: Membresías (Procedimientos 01 a 04)
 -- =========================================
--- CONSULTA 01
+-- PROCEDIMIENTO 01
 -- Registrar nueva membresía y asignarla a un usuario -> Inserta una nueva membresía con 
 -- fecha de inicio, fecha de vencimiento y estado inicial.
 -- =========================================
 -- =========================================
--- CONSULTA 02
+-- PROCEDIMIENTO 02
 -- Renovar una membresía existente -> Extiende la vigencia de una membresía según el tipo
 -- contratado.
 -- =========================================
+
+DROP PROCEDURE IF EXISTS sp_renovar_membresia;
 
 DELIMITER $$
 
@@ -62,8 +65,10 @@ BEGIN
     END IF;
 END $$
 
+DELIMITER ;
+
 -- =========================================
--- CONSULTA 03
+-- PROCEDIMIENTO 03
 -- Actualizar estado de membresías vencidas -> Recorre las membresías y marca como
 -- "Vencida" las que superan la fecha de fin.
 -- =========================================
@@ -86,21 +91,23 @@ DELIMITER ;
 
 
 -- =========================================
--- CONSULTA 04
+-- PROCEDIMIENTO 04
 -- Suspender membresías con facturas impagas por más de X días -> Cambia el estado a
 -- "Suspendida" para usuarios con deudas.
 -- =========================================
 -- Submódulo: Reservas y Espacios (Procedimientos 05 a 09)
 -- =========================================
--- CONSULTA 05
+-- PROCEDIMIENTO 05
 -- Verificar disponibilidad de un espacio antes de crear reserva -> Comprueba que no haya
 -- solapamiento de horarios en el mismo espacio.
 -- =========================================
 -- =========================================
--- CONSULTA 06
+-- PROCEDIMIENTO 06
 -- Crear una nueva reserva de espacio -> Inserta una reserva en estado "Pendiente" y la vincula
 -- a un usuario y espacio.
 -- =========================================
+
+DROP PROCEDURE IF EXISTS sp_crear_reserva;
 
 DELIMITER $$
 
@@ -147,8 +154,10 @@ BEGIN
     SET p_id_reserva = LAST_INSERT_ID();
 END $$
 
+DELIMITER ;
+
 -- =========================================
--- CONSULTA 07
+-- PROCEDIMIENTO 07
 -- Confirmar reserva con pago -> Cambia estado de reserva a "Confirmada" al registrar el
 -- pago.
 -- =========================================
@@ -263,25 +272,27 @@ DELIMITER ;
 
 
 -- =========================================
--- CONSULTA 08
+-- PROCEDIMIENTO 08
 -- Cancelar reserva con opción de reembolso parcial -> Marca reserva como "Cancelada" y
 -- genera un registro de reembolso si aplica.
 -- =========================================
 -- =========================================
--- CONSULTA 09
+-- PROCEDIMIENTO 09
 -- Liberar reservas no confirmadas después de X horas -> Automatiza la cancelación de
 -- reservas en estado "Pendiente".
 -- =========================================
 -- Submódulo: Pagos y Facturación (Procedimientos 10 a 13)
 -- =========================================
--- CONSULTA 10
+-- PROCEDIMIENTO 10
 -- Generar factura por membresía -> Crea factura al activar o renovar una membresía.
 -- =========================================
 -- =========================================
--- CONSULTA 11
+-- PROCEDIMIENTO 11
 -- Generar factura consolidada para empresa -> Agrupa cargos de empleados corporativos en
 -- una sola factura.
 -- =========================================
+
+DROP PROCEDURE IF EXISTS sp_factura_consolidada;
 
 DELIMITER $$
 
@@ -354,8 +365,10 @@ BEGIN
     DROP TEMPORARY TABLE IF EXISTS tmp_cargos;
 END $$
 
+DELIMITER ;
+
 -- =========================================
--- CONSULTA 12
+-- PROCEDIMIENTO 12
 -- Aplicar recargos a facturas vencidas -> Incrementa el monto de facturas con más de X días
 -- de atraso.
 -- =========================================
@@ -398,20 +411,22 @@ END$$
 DELIMITER ;
 
 -- =========================================
--- CONSULTA 13
+-- PROCEDIMIENTO 13
 -- Bloquear servicios adicionales por falta de pago -> Restringe acceso a servicios premium si
 -- existen facturas pendientes.
 -- =========================================
 -- Submódulo: Accesos y Asistencias (Procedimientos 14 a 17)
 -- =========================================
--- CONSULTA 14
+-- PROCEDIMIENTO 14
 -- Registrar acceso de usuario (entrada) -> Valida membresía o reserva activa y registra
 -- entrada en logs.
 -- =========================================
 -- =========================================
--- CONSULTA 15
+-- PROCEDIMIENTO 15
 -- Registrar salida de usuario -> Completa la asistencia del usuario y marca hora de salida.
 -- =========================================
+
+DROP PROCEDURE IF EXISTS sp_registrar_salida;
 
 DELIMITER $$
 
@@ -447,8 +462,10 @@ BEGIN
     END IF;
 END $$
 
+DELIMITER ;
+
 -- =========================================
--- CONSULTA 16
+-- PROCEDIMIENTO 16
 -- Generar reporte diario de asistencias -> Resume cantidad de ingresos, usuarios únicos y
 -- horarios pico.
 -- =========================================
@@ -532,21 +549,23 @@ DELIMITER ;
 
 
 -- =========================================
--- CONSULTA 17
+-- PROCEDIMIENTO 17
 -- Marcar reservas como "No Show" y generar penalización -> Detecta reservas confirmadas
 -- sin asistencia y aplica cargo automático.
 -- =========================================
 -- Submódulo: Corporativos y Administración (Procedimientos 18 a 20)
 -- =========================================
--- CONSULTA 18
+-- PROCEDIMIENTO 18
 -- Registrar lote de empleados de una empresa con membresía corporativa -> Inserta varios
 -- usuarios vinculados a una empresa y les asigna membresía.
 -- =========================================
 -- =========================================
--- CONSULTA 19
+-- PROCEDIMIENTO 19
 -- Cancelar reservas futuras al eliminar membresía de usuario -> Recorre reservas
 -- pendientes/confirmadas y las cancela automáticamente.
 -- =========================================
+
+DROP PROCEDURE IF EXISTS sp_cancelar_reservas_futuras;
 
 DELIMITER $$
 
@@ -575,8 +594,10 @@ BEGIN
     CLOSE cur;
 END $$
 
+DELIMITER ;
+
 -- =========================================
--- CONSULTA 20
+-- PROCEDIMIENTO 20
 -- Generar reporte de ingresos mensuales acumulados -> Calcula ingresos por mes e ingresos
 -- acumulados en el año.
 -- =========================================

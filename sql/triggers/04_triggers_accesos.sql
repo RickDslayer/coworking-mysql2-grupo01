@@ -4,10 +4,10 @@ Grupo: 01
 Módulo: Triggers - Accesos
 Archivo: 04_triggers_accesos.sql
 Descripción:
-Triggers 18 a 22 del módulo de Accesos.
+Triggers 16 a 20 del módulo de Accesos.
 
 Requisitos:
-Ejecutar previamente DDL y DML.
+Ejecutar previamente DDL, DML y funciones.
 */
 
 
@@ -21,6 +21,8 @@ Ejecutar previamente DDL y DML.
 -- TRIGGER 17
 -- Bloquear acceso si el usuario no tiene membresía activa.
 -- =========================================
+
+DROP TRIGGER IF EXISTS trg_acceso_bi_validar;
 
 DELIMITER $$
 
@@ -96,6 +98,8 @@ BEGIN
         END IF;
     END IF;
 END $$
+
+DELIMITER ;
 
 -- =========================================
 -- TRIGGER 18

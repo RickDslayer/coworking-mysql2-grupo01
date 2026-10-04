@@ -12,6 +12,10 @@ Ejecutar previamente DDL y DML.
 
 USE coworking_db;
 
+-- Fecha de corte de los datos de prueba (las consultas de "hoy" la usan).
+-- En producción: SET @hoy = CURDATE();
+SET @hoy = DATE('2026-09-30');
+
 -- CONSULTA 01
 -- Listar todos los usuarios con su información básica.
 -- =========================================
@@ -65,7 +69,7 @@ SELECT u.id_usuario,
        CONCAT(u.nombre, ' ', u.apellidos) AS nombre_completo,
        u.fecha_registro,
        TIMESTAMPDIFF(MONTH, u.fecha_registro, @hoy) AS meses_antiguedad
-FROM USUARIO u
+FROM usuario u
 ORDER BY u.fecha_registro ASC
 LIMIT 10;
 
@@ -78,8 +82,8 @@ SELECT u.id_usuario,
        CONCAT(u.nombre, ' ', u.apellidos) AS nombre_completo,
        u.email,
        u.telefono
-FROM USUARIO u
-JOIN EMPRESA e ON e.id_empresa = u.id_empresa
+FROM usuario u
+JOIN empresa e ON e.id_empresa = u.id_empresa
 WHERE e.nombre = 'Andes Software SAS'
 ORDER BY u.apellidos;
 
@@ -91,8 +95,8 @@ ORDER BY u.apellidos;
 SELECT e.id_empresa,
        e.nombre AS empresa,
        COUNT(u.id_usuario) AS total_usuarios
-FROM EMPRESA e
-LEFT JOIN USUARIO u ON u.id_empresa = e.id_empresa
+FROM empresa e
+LEFT JOIN usuario u ON u.id_empresa = e.id_empresa
 GROUP BY e.id_empresa, e.nombre
 ORDER BY total_usuarios DESC;
 
@@ -104,8 +108,8 @@ ORDER BY total_usuarios DESC;
 SELECT u.id_usuario,
        CONCAT(u.nombre, ' ', u.apellidos) AS nombre_completo,
        u.fecha_registro
-FROM USUARIO u
-WHERE NOT EXISTS (SELECT 1 FROM RESERVA r WHERE r.id_usuario = u.id_usuario);
+FROM usuario u
+WHERE NOT EXISTS (SELECT 1 FROM reserva r WHERE r.id_usuario = u.id_usuario);
 
 -- =========================================
 -- CONSULTA 10
@@ -115,8 +119,8 @@ WHERE NOT EXISTS (SELECT 1 FROM RESERVA r WHERE r.id_usuario = u.id_usuario);
 SELECT u.id_usuario,
        CONCAT(u.nombre, ' ', u.apellidos) AS nombre_completo,
        COUNT(*) AS reservas_mes
-FROM USUARIO u
-JOIN RESERVA r ON r.id_usuario = u.id_usuario
+FROM usuario u
+JOIN reserva r ON r.id_usuario = u.id_usuario
 WHERE r.estado IN ('Pendiente de Confirmacion', 'Confirmada', 'Finalizada')
   AND YEAR(r.fecha_inicio)  = YEAR(@hoy)
   AND MONTH(r.fecha_inicio) = MONTH(@hoy)
@@ -129,7 +133,7 @@ HAVING COUNT(*) > 5;
 -- =========================================
 
     SELECT 
-    AVG( YEAR(CURDATE()) - YEAR(fecha_nacimiento) ) AS promedio_edad
+    AVG( YEAR(@hoy) - YEAR(fecha_nacimiento) ) AS promedio_edad
 FROM 
     usuario;
 
@@ -211,7 +215,7 @@ WHERE tm.nombre = 'Premium'
 GROUP BY usu.id_usuario, usu.nombre, usu.apellidos, mem.fecha_fin
 ORDER BY reservas_activas DESC;
 
-- =========================================
+-- =========================================
 -- CONSULTA 16
 -- Mostrar usuarios con membresía Corporativa y su empresa.
 -- =========================================
@@ -257,12 +261,12 @@ SELECT
     u.id_usuario,
     u.nombre,
     m.fecha_fin,
-    DATEDIFF(m.fecha_fin, CURDATE()) AS dias_restantes
+    DATEDIFF(m.fecha_fin, @hoy) AS dias_restantes
 FROM membresia AS m
 INNER JOIN usuario AS u
     ON u.id_usuario = m.id_usuario
 WHERE m.estado = 'activa'
-  AND m.fecha_fin BETWEEN CURDATE() AND DATE_ADD(CURDATE(), INTERVAL 7 DAY)
+  AND m.fecha_fin BETWEEN @hoy AND DATE_ADD(@hoy, INTERVAL 7 DAY)
 ORDER BY m.fecha_fin;
 
 -- =========================================
@@ -274,7 +278,7 @@ SELECT id_usuario,
 nombre , 
 fecha_registro
 FROM usuario 
-WHERE YEAR(fecha_registro) = YEAR(NOW()) AND MONTH(fecha_registro) = MONTH(NOW()) -1 ;
+WHERE YEAR(fecha_registro) = YEAR(@hoy) AND MONTH(fecha_registro) = MONTH(@hoy) -1 ;
 
 
 -- =========================================

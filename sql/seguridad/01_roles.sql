@@ -1,7 +1,7 @@
 /*
 Proyecto: Gestión de Coworking
 Grupo: 01
-Módulo: Procedimientos Almacenados y Control de Acceso / Roles
+Módulo: Control de Acceso / Roles
 Archivo: 01_roles.sql
 Descripción:
 Creación de los 5 roles de Control de Acceso del sistema.

@@ -12,13 +12,13 @@
 
 ## Matriz de permisos
 
-`x` = sin acceso
+`x` = sin acceso · `*` = mediante procedimiento almacenado (ver nota del Gerente Corporativo)
 
 | Objeto | Administrador | Recepcionista | Usuario | Gerente Corporativo | Contador |
 |--------|---------------|---------------|---------|---------------------|----------|
 | EMPRESA | SELECT, INSERT, UPDATE, DELETE | SELECT, INSERT, UPDATE | x | SELECT | SELECT |
 | USUARIO | SELECT, INSERT, UPDATE, DELETE | SELECT, INSERT, UPDATE | SELECT, UPDATE | SELECT, INSERT, UPDATE | SELECT |
-| CUENTA | SELECT, INSERT, UPDATE, DELETE | SELECT, INSERT, UPDATE | SELECT, UPDATE | SELECT, INSERT, UPDATE | x |
+| CUENTA | SELECT, INSERT, UPDATE, DELETE | SELECT, INSERT, UPDATE | SELECT, UPDATE | SELECT, INSERT\*, UPDATE\* | x |
 | TIPO_MEMBRESIA | SELECT, INSERT, UPDATE, DELETE | SELECT | SELECT | SELECT | SELECT |
 | MEMBRESIA | SELECT, INSERT, UPDATE, DELETE | SELECT, INSERT, UPDATE | SELECT | SELECT, INSERT | SELECT |
 | LOG_MEMBRESIA | SELECT, INSERT, UPDATE, DELETE | SELECT | x | x | SELECT |
@@ -58,6 +58,7 @@
 **Gerente Corporativo**
 - Solo ve y modifica los datos de **su empresa** (`CUENTA.id_empresa`).
 - Puede registrar empleados nuevos (`USUARIO` + `CUENTA`) y solicitarles membresía corporativa (`INSERT` en `MEMBRESIA`).
+- Las cuentas de sus empleados las crea y activa/desactiva con `sp_crear_cuenta_empleado` y `sp_estado_cuenta_empleado`. Los procedimientos validan que el empleado sea de su empresa y siempre asignan el rol `Usuario`. No se hace con una vista porque MySQL no permite actualizar una vista sobre `CUENTA` filtrada por una función que también lee `CUENTA`.
 - Consulta la facturación consolidada, los pagos y la asistencia de sus empleados.
 - No ve credenciales ni logs.
 
@@ -77,10 +78,19 @@
 
 | Rol | Procedimientos |
 |-----|----------------|
-| Administrador | Todos |
-| Recepcionista | Registrar / renovar membresía, verificar disponibilidad, crear / confirmar / cancelar reserva, registrar entrada y salida |
-| Usuario | Verificar disponibilidad, crear reserva, cancelar reserva |
-| Gerente Corporativo | Registrar lote de empleados corporativos |
-| Contador | Generar factura (membresía y consolidada), aplicar recargos, bloquear servicios por falta de pago, reporte de ingresos mensuales |
+| Administrador | Todos (incluye los procesos masivos de los eventos: `sp_actualizar_membresias_vencidas`, `sp_suspender_membresias_morosas`, `sp_liberar_reservas_pendientes`, `sp_marcar_no_show`) |
+| Recepcionista | `sp_registrar_membresia`, `sp_renovar_membresia`, `sp_verificar_disponibilidad`, `sp_crear_reserva`, `sp_confirmar_reserva_con_pago`, `sp_cancelar_reserva`, `sp_cancelar_reservas_futuras`, `sp_registrar_entrada`, `sp_registrar_salida`, `sp_reporte_asistencias_diario` |
+| Usuario | `sp_verificar_disponibilidad`, `sp_crear_reserva`, `sp_cancelar_reserva` (solo sobre sus propias reservas) |
+| Gerente Corporativo | `sp_registrar_lote_empleados` (solo en su empresa), `sp_crear_cuenta_empleado`, `sp_estado_cuenta_empleado` |
+| Contador | `sp_factura_membresia`, `sp_factura_consolidada`, `sp_aplicar_recargos_vencidas`, `sp_bloquear_servicios`, `sp_reporte_ingresos_mensual` |
 
-3. **Eventos.** Los eventos los crea y administra solo el Administrador. Necesitan el privilegio `EVENT` y `event_scheduler = ON`.
+3. **Funciones (funciones.sql).** Solo el personal interno tiene `EXECUTE`. Usuario y Gerente no, porque las funciones aceptan cualquier id y les dejarían ver datos de otros clientes.
+
+| Rol | Funciones |
+|-----|-----------|
+| Administrador | Todas |
+| Recepcionista | Membresías (1–5), reservas (6–10) y asistencias (16–20) |
+| Contador | Pagos y facturación (11–15) y membresías (1, 3, 4, 5) |
+| Usuario / Gerente | Ninguna |
+
+4. **Eventos.** Los eventos los crea y administra solo el Administrador. Necesitan el privilegio `EVENT` y `event_scheduler = ON`.

@@ -4,10 +4,10 @@ Grupo: 01
 Módulo: Triggers - Reservas
 Archivo: 02_triggers_reservas.sql
 Descripción:
-Triggers 07 a 12 del módulo de Reservas.
+Triggers 06 a 10 del módulo de Reservas.
 
 Requisitos:
-Ejecutar previamente DDL y DML.
+Ejecutar previamente DDL, DML y funciones.
 */
 
 
@@ -22,17 +22,20 @@ Ejecutar previamente DDL y DML.
 -- Registrar automáticamente el estado “Pendiente de Confirmación” al crear una reserva.
 -- =========================================
 
+DROP TRIGGER IF EXISTS trg_reserva_bi_estado_inicial;
+
 DELIMITER $$
 
 CREATE TRIGGER trg_reserva_bi_estado_inicial
 BEFORE INSERT ON RESERVA
 FOR EACH ROW
-FOLLOWS trg_reserva_bi_validar_duplicado
 BEGIN
     SET NEW.estado               = 'Pendiente de Confirmacion',
         NEW.fecha_creacion       = NOW(),
         NEW.recordatorio_enviado = FALSE;
 END $$
+
+DELIMITER ;
 
 -- =========================================
 -- TRIGGER 08

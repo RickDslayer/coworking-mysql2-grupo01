@@ -2,27 +2,31 @@
 Proyecto: Gestión de Coworking
 Grupo: 01
 Módulo: Eventos SQL
-Archivo: 04_eventos_sql.sql
+Archivo: 01_eventos.sql
 Descripción:
-Estructura y comentarios organizativos para los 20 Eventos SQL del proyecto.
+Implementación de los 20 Eventos SQL del proyecto. Se crean
+desactivados (DISABLE) para no modificar los datos de prueba; se
+activan con SET GLOBAL event_scheduler = ON y ALTER EVENT ... ENABLE.
 Requisitos:
-Ejecutar previamente DDL y DML.
+Ejecutar previamente DDL, DML, funciones, triggers y procedimientos.
 */
 
 USE coworking_db;
 
---============================================================================
+-- ============================================================================
 -- SECCIÓN: EVENTOS SQL (Eventos 01 a 20)
---============================================================================
+-- ============================================================================
 -- Submódulo: Membresías (Eventos 01 a 05)
 -- =========================================
--- CONSULTA 01
+-- EVENTO 01
 -- Revisar diariamente membresías vencidas y actualizarlas a estado "Vencida".
 -- =========================================
 -- =========================================
--- CONSULTA 02
+-- EVENTO 02
 -- Enviar recordatorio de renovación 5 días antes de vencer la membresía.
 -- =========================================
+DROP EVENT IF EXISTS ev_recordatorio_renovacion;
+
 DELIMITER $$
 
 CREATE EVENT ev_recordatorio_renovacion
@@ -52,8 +56,10 @@ BEGIN
                         AND m2.fecha_inicio >= m.fecha_fin);
 END $$
 
+DELIMITER ;
+
 -- =========================================
--- CONSULTA 03
+-- EVENTO 03
 -- Suspender membresías inactivas después de 30 días sin pago.
 -- =========================================
 
@@ -61,6 +67,7 @@ DROP EVENT IF EXISTS evt_suspender_membresias_sin_pago;
 
 CREATE EVENT evt_suspender_membresias_sin_pago
 ON SCHEDULE EVERY 1 DAY
+DISABLE  -- se deja desactivado por defecto; activar según necesidad
 DO
     UPDATE membresia AS mem
     SET mem.estado = 'Suspendida'
@@ -73,22 +80,24 @@ DO
                      AND DATEDIFF(CURDATE(), fac.fecha_emision) > 30);
                      
 -- =========================================
--- CONSULTA 04
+-- EVENTO 04
 -- Generar reporte semanal de nuevas membresías al administrador.
 -- =========================================
 -- =========================================
--- CONSULTA 05
+-- EVENTO 05
 -- Notificar membresías suspendidas cada día a recepción.
 -- =========================================
 -- Submódulo: Reservas (Eventos 06 a 10)
 -- =========================================
--- CONSULTA 06
+-- EVENTO 06
 -- Cancelar automáticamente reservas no confirmadas después de 2 horas.
 -- =========================================
 -- =========================================
--- CONSULTA 07
+-- EVENTO 07
 -- Enviar recordatorio 1 hora antes de la reserva a cada usuario.
 -- =========================================
+
+DROP EVENT IF EXISTS ev_recordatorio_reserva;
 
 DELIMITER $$
 
@@ -119,8 +128,10 @@ BEGIN
       AND fecha_inicio BETWEEN NOW() AND NOW() + INTERVAL 1 HOUR;
 END $$
 
+DELIMITER ;
+
 -- =========================================
--- CONSULTA 08
+-- EVENTO 08
 -- Eliminar reservas pasadas no asistidas después de 7 días.
 -- =========================================
 
@@ -128,6 +139,7 @@ DROP EVENT IF EXISTS evt_eliminar_reservas_no_show;
 
 CREATE EVENT evt_eliminar_reservas_no_show
 ON SCHEDULE EVERY 1 DAY
+DISABLE  -- se deja desactivado por defecto; activar según necesidad
 DO
     DELETE res
     FROM reserva AS res
@@ -138,22 +150,24 @@ DO
                        WHERE pen.id_reserva = res.id_reserva);
 
 -- =========================================
--- CONSULTA 09
+-- EVENTO 09
 -- Generar reporte semanal de ocupación de espacios.
 -- =========================================
 -- =========================================
--- CONSULTA 10
+-- EVENTO 10
 -- Liberar reservas bloqueadas si no se inicia en los primeros 15 minutos.
 -- =========================================
 -- Submódulo: Pagos y Facturación (Eventos 11 a 15)
 -- =========================================
--- CONSULTA 11
+-- EVENTO 11
 -- Enviar recordatorio de pago pendiente cada 3 días.
 -- =========================================
 -- =========================================
--- CONSULTA 12
+-- EVENTO 12
 -- Bloquear servicios adicionales si existen facturas vencidas mayores a 10 días.
 -- =========================================
+
+DROP EVENT IF EXISTS ev_bloquear_servicios_por_deuda;
 
 DELIMITER $$
 
@@ -175,8 +189,10 @@ BEGIN
     CALL sp_bloquear_servicios(10, v_total);
 END $$
 
+DELIMITER ;
+
 -- =========================================
--- CONSULTA 13
+-- EVENTO 13
 -- Generar resumen de facturación mensual automáticamente.
 -- =========================================
 
@@ -187,6 +203,7 @@ DELIMITER $$
 CREATE EVENT evt_resumen_facturacion_mensual
 ON SCHEDULE EVERY 1 MONTH
 STARTS '2026-11-01 00:10:00'
+DISABLE  -- se deja desactivado por defecto; activar según necesidad
 DO
 BEGIN
     DECLARE v_inicio_mes  DATE;
@@ -235,11 +252,11 @@ END$$
 DELIMITER ;
 
 -- =========================================
--- CONSULTA 14
+-- EVENTO 14
 -- Aplicar recargos automáticos a facturas vencidas después de 15 días.
 -- =========================================
 -- =========================================
--- CONSULTA 15
+-- EVENTO 15
 -- Enviar al contador un reporte de ingresos acumulados cada fin de mes.
 -- =========================================
 
@@ -250,6 +267,7 @@ DELIMITER $$
 CREATE EVENT evt_reporte_ingresos_fin_de_mes
 ON SCHEDULE EVERY 1 DAY
 STARTS '2026-10-03 23:30:00'
+DISABLE  -- se deja desactivado por defecto; activar según necesidad
 DO
 BEGIN
     DECLARE v_inicio_mes    DATE;
@@ -296,13 +314,15 @@ DELIMITER ;
 
 -- Submódulo: Accesos y Asistencias (Eventos 16 a 20)
 -- =========================================
--- CONSULTA 16
+-- EVENTO 16
 -- Eliminar accesos antiguos (más de 1 año) automáticamente.
 -- =========================================
 -- =========================================
--- CONSULTA 17
+-- EVENTO 17
 -- Enviar reporte diario de asistencias al administrador.
 -- =========================================
+
+DROP EVENT IF EXISTS ev_reporte_diario_asistencias;
 
 DELIMITER $$
 
@@ -314,11 +334,13 @@ COMMENT 'Diario 06:30 - ingresos, usuarios unicos y hora pico del dia anterior'
 DO
 BEGIN
     -- El procedimiento guarda el resumen en NOTIFICACION para el administrador
-    CALL sp_reporte_diario_asistencias(CURDATE() - INTERVAL 1 DAY);
+    CALL sp_reporte_asistencias_diario(CURDATE() - INTERVAL 1 DAY);
 END $$
 
+DELIMITER ;
+
 -- =========================================
--- CONSULTA 18
+-- EVENTO 18
 -- Generar reporte semanal de usuarios inactivos (sin accesos).
 -- =========================================
 
@@ -327,6 +349,7 @@ DROP EVENT IF EXISTS evt_reporte_usuarios_inactivos;
 CREATE EVENT evt_reporte_usuarios_inactivos
 ON SCHEDULE EVERY 1 WEEK
 STARTS '2026-10-01 06:10:00'
+DISABLE  -- se deja desactivado por defecto; activar según necesidad
 DO
     INSERT INTO notificacion (id_usuario, id_cuenta, destinatario_rol, tipo, asunto, mensaje)
     SELECT
@@ -344,13 +367,15 @@ DO
                                     AND acc.fecha_hora_entrada >= NOW() - INTERVAL 7 DAY);
 
 -- =========================================
--- CONSULTA 19
+-- EVENTO 19
 -- Alertar accesos fuera de horario laboral cada día.
 -- =========================================
 -- =========================================
--- CONSULTA 20
+-- EVENTO 20
 -- Enviar reporte de top 10 usuarios más frecuentes cada mes.
 -- =========================================
+
+DROP EVENT IF EXISTS ev_reporte_top_usuarios;
 
 DELIMITER $$
 
@@ -389,3 +414,5 @@ BEGIN
                    COALESCE(v_detalle, 'sin asistencias registradas'), '.'),
             NOW());
 END $$
+
+DELIMITER ;

@@ -4,10 +4,10 @@ Grupo: 01
 Módulo: Triggers - Pagos y Facturación
 Archivo: 03_triggers_pagos_facturacion.sql
 Descripción:
-Triggers 13 a 17 del módulo de Pagos y Facturación.
+Triggers 11 a 15 del módulo de Pagos y Facturación.
 
 Requisitos:
-Ejecutar previamente DDL y DML.
+Ejecutar previamente DDL, DML y funciones.
 */
 
 
@@ -21,6 +21,8 @@ Ejecutar previamente DDL y DML.
 -- TRIGGER 12
 -- Actualizar factura a “Pagada” cuando se confirma el pago.
 -- =========================================
+
+DROP TRIGGER IF EXISTS trg_pago_au_actualizar_factura;
 
 DELIMITER $$
 

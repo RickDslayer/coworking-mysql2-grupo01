@@ -1,16 +1,18 @@
--- =====================================================================
---  PROYECTO : Gestion de Coworking y Oficinas Compartidas (ID 1791)
---  ARCHIVO  : dml.sql
---  OBJETIVO : Cargar datos de prueba: 100 clientes y el resto de tablas
---             en proporcion, coherentes entre si (fechas, montos, saldos).
---  REQUISITO: ejecutar primero ddl.sql y cargar este archivo ANTES de crear
---             los triggers (los datos ya traen los estados finales).
---
---  FECHAS    : todas las fechas estan escritas de forma fija. Los datos
---              historicos van hasta el 30 de septiembre de 2026 (fecha de
---              corte); hay reservas futuras hasta mediados de octubre de 2026.
---  CONTRASENAS: se guardan en texto plano (solo para datos de prueba).
--- =====================================================================
+/*
+Proyecto: Gestión de Coworking
+Grupo: 01
+Módulo: Datos Iniciales (DML)
+Archivo: 01_datos_iniciales.sql
+Descripción:
+Datos de prueba: 100 clientes y el resto de tablas en proporción,
+coherentes entre sí (fechas, montos y saldos).
+Fechas fijas: el historial va hasta el 30/09/2026 (fecha de corte) y
+hay reservas futuras hasta mediados de octubre de 2026.
+Las contraseñas se guardan en texto plano (solo datos de prueba).
+Requisitos:
+Ejecutar previamente 01_estructura.sql. Cargar ANTES de los triggers:
+los datos ya traen sus estados finales.
+*/
 
 USE coworking_db;
 

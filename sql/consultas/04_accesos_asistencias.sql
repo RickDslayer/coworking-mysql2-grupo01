@@ -285,12 +285,12 @@ INNER JOIN membresia AS m ON m.id_usuario = u.id_usuario
 INNER JOIN detalle_factura AS df ON df.id_membresia = m.id_membresia
 INNER JOIN factura AS f ON f.id_factura = df.id_factura
 INNER JOIN pago AS p ON p.id_factura = f.id_factura
-                    AND p.estado = 'completado'
+                    AND p.estado = 'Pagado'
 WHERE NOT EXISTS (
     SELECT 1
     FROM acceso AS a
     WHERE a.id_usuario = u.id_usuario
-      AND a.resultado = 'permitido'
+      AND a.resultado = 'Permitido'
 );
 
 -- =========================================
@@ -305,9 +305,9 @@ SELECT
     a.fecha_hora_entrada AS fecha_intento,
     a.motivo_rechazo
 FROM acceso AS a
-WHERE a.resultado = 'rechazado'
-  AND a.metodo = 'qr'
-  AND a.motivo_rechazo LIKE '%invalido%';
+WHERE a.resultado = 'Rechazado'
+  AND a.metodo = 'QR'
+  AND a.motivo_rechazo LIKE 'QR invalido';
 
 -- =========================================
 -- CONSULTA 78
@@ -315,7 +315,7 @@ WHERE a.resultado = 'rechazado'
 -- =========================================
 
 SELECT
-    ROUND(COUNT(a.id_acceso) / COUNT(DISTINCT u.id_usuario), 2) AS accesos_promedio_por_usuario
+    ROUND(COUNT(a.id_acceso) / COUNT(DISTINCT u.id_usuario), 0) AS accesos_promedio_por_usuario
 FROM usuario AS u
 LEFT JOIN acceso AS a
     ON a.id_usuario = u.id_usuario
@@ -328,17 +328,14 @@ LEFT JOIN acceso AS a
 
 SELECT
     u.id_usuario,
-    u.nombre,
-    u.apellidos,
-    SUM(HOUR(a.fecha_hora_entrada) < 12) AS visitas_manana,
-    SUM(HOUR(a.fecha_hora_entrada) BETWEEN 12 AND 17) AS visitas_tarde,
-    SUM(HOUR(a.fecha_hora_entrada) >= 18) AS visitas_noche
+	CONCAT(u.nombre ,' ', u.apellidos ) AS nombre_completo,
+	SUM(HOUR(a.fecha_hora_entrada) < 12) AS visitas_mañana
 FROM usuario AS u
 INNER JOIN acceso AS a ON a.id_usuario = u.id_usuario
 WHERE a.resultado = 'permitido'
-GROUP BY u.id_usuario, u.nombre, u.apellidos
-HAVING visitas_manana > visitas_tarde
-   AND visitas_manana > visitas_noche;
+GROUP BY u.id_usuario, nombre_completo
+HAVING visitas_mañana > 0
+ORDER BY visitas_mañana DESC;
 
 -- =========================================
 -- CONSULTA 80
@@ -347,14 +344,11 @@ HAVING visitas_manana > visitas_tarde
 
 SELECT
     u.id_usuario,
-    u.nombre,
-    u.apellidos,
-    SUM(HOUR(a.fecha_hora_entrada) < 12) AS visitas_manana,
-    SUM(HOUR(a.fecha_hora_entrada) BETWEEN 12 AND 17) AS visitas_tarde,
-    SUM(HOUR(a.fecha_hora_entrada) >= 18) AS visitas_noche
+    CONCAT(u.nombre ,' ', u.apellidos ) AS nombre_completo,
+    SUM(HOUR(a.fecha_hora_entrada) >= 18 ) AS visitas_noche
 FROM usuario AS u
 INNER JOIN acceso AS a ON a.id_usuario = u.id_usuario
-WHERE a.resultado = 'permitido'
-GROUP BY u.id_usuario, u.nombre, u.apellidos
-HAVING visitas_noche > visitas_manana
-   AND visitas_noche > visitas_tarde;
+WHERE a.resultado = 'Permitido'
+GROUP BY u.id_usuario, nombre_completo
+HAVING visitas_noche > 0
+ORDER BY visitas_noche DESC;
